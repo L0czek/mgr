@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <cstring>
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
 
 // =============================== AFL =================================
 constexpr int AFL_FORKSRV_FD = 199;
+constexpr int RESTORE_EVENT_FD = 200;
 constexpr int STATUS_FD = 399;
 
 struct Status {
@@ -67,9 +69,26 @@ struct Status {
     int value;
 };
 
-static void afl_persistent(const char *path, int argc, char *argv[]) {
-    std::uint32_t options = 0;
+static int RESTORE_FD = -1;
 
+static void handler(int signal) {
+    if (signal == SIGUSR1) {
+        log("Restore requested\n");
+
+        std::uint64_t v = 1;
+        if (write(RESTORE_FD, &v, sizeof(v)) != sizeof(v)) {
+            log("Failed to sent restore request to QEMU: %s\n", strerror(errno));
+            exit(-1);
+        }
+
+        log("Restore request sent to QEMU\n");
+    }
+}
+
+static void afl_persistent(const char *path, int argc, char *argv[]) {
+    signal(SIGUSR1, &handler);
+
+    std::uint32_t options = 0;
     if (write(AFL_FORKSRV_FD + 1, &options, sizeof(options)) != sizeof(options)) {
         log("AFL does not want to talk, exiting\n");
         return;
@@ -101,6 +120,20 @@ static void afl_persistent(const char *path, int argc, char *argv[]) {
     if (sem_init(&st->sem, 1, 0) == -1) {
         log("Failed to initialize semaphore: %s\n", std::strerror(errno));
         return;
+    }
+
+    RESTORE_FD = eventfd(0, 0);
+    if (RESTORE_FD == -1) {
+        log("Failed to create restore eventfd: %s\n", strerror(errno));
+        return;
+    }
+
+    pid_t my_pid = getpid();
+
+    int afl_kill_sig = -1;
+    const char *afl_kill_signal = getenv("AFL_KILL_SIGNAL");
+    if (afl_kill_signal) {
+        afl_kill_sig = atoi(afl_kill_signal);
     }
 
     while (true) {
@@ -136,8 +169,12 @@ static void afl_persistent(const char *path, int argc, char *argv[]) {
             }
         }
 
-        pid_t pid = child_pid;
-        //TODO: timeout handling here
+        pid_t pid;
+        if (afl_kill_sig == SIGUSR1) {
+            pid = my_pid;
+        } else {
+            pid = child_pid;
+        }
 
         if (write(AFL_FORKSRV_FD + 1, &pid, sizeof(pid)) != sizeof(pid))
             exit(5);
