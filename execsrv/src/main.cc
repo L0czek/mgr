@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     }
 
     int new_argc = argc - optind + 1;
-    char **new_argv = (char **) calloc(new_argc, sizeof(char *));
+    char **new_argv = (char **) calloc(new_argc + 1, sizeof(char *));
     new_argv[0] = basename(path);
     memcpy(&new_argv[1], &argv[optind], (argc - optind) * sizeof(char *));
 
@@ -60,8 +60,8 @@ int main(int argc, char *argv[]) {
 }
 
 // =============================== AFL =================================
-constexpr int AFL_FORKSRV_FD = 199;
-constexpr int RESTORE_EVENT_FD = 200;
+constexpr int AFL_FORKSRV_FD = 198;
+constexpr int RESTORE_EVENT_FD = 400;
 constexpr int STATUS_FD = 399;
 
 struct Status {
@@ -193,7 +193,7 @@ static void afl_persistent(const char *path, int argc, char *argv[]) {
         }
 
         if (!was_killed) {
-            log("QEMU OS state = %s\n", st->value);
+            log("QEMU OS state = %d\n", st->value);
 
             if (write(AFL_FORKSRV_FD + 1, &st->value, sizeof(st->value)) != sizeof(st->value))
                 exit(7);
