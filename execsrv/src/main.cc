@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     while ((opt = getopt(argc, argv, "p:l:")) != -1) {
         switch (opt) {
             case 'p': path = optarg; break;
-            case 'l': path = optarg; break;
+            case 'l': initlog(optarg); break;
         }
     }
 
