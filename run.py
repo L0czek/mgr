@@ -140,7 +140,7 @@ def is_port_open(port: int) -> bool:
 def launch_terminal(port: int, label: str, options: argparse.Namespace):
     optee_build = options.optee_build_dir
     soc_term = os.path.join(optee_build, 'soc_term.py')
-    Popen(f"gnome-terminal -t '{label}' -- {soc_term} {port}".split())
+    Popen(shlex.split(f"gnome-terminal -t '{label}' -- {soc_term} {port}"))
 
 def launch_terminals(options: argparse.Namespace):
     for port, label in zip([54320, 54321], ["Normal world", "Secure world"]):
