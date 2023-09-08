@@ -10,6 +10,7 @@ import ctypes
 import ctypes.util
 from subprocess import Popen, PIPE, check_call
 from typing import Dict
+import uuid
 
 DIR = os.path.dirname(__file__)
 
@@ -21,6 +22,12 @@ def parse_args():
     parser.add_argument('--qemu-log-file', required=False, type=str, help='Store logs from QEMU to file')
     parser.add_argument('--afl-log-file', required=False, type=str, help="Store logs from AFL to file")
     parser.add_argument('--execsrv-log-file', required=False, type=str, help="Store logs from execsrv to file")
+    parser.add_argument('--enable-statsd', required=False, action='store_true', help="Send metrics to statsd server")
+    parser.add_argument('--statsd-host', default='127.0.0.1:8125', type=str, help="StatsD host")
+    parser.add_argument('--statsd-flavor', required=False, choices=['dogstatsd', 'influxdb', 'librato', 'signalfx'], help="Select the StatsD flavor")
+    parser.add_argument('--launch-terminals', required=False, action='store_true', help="Launch terminals")
+    parser.add_argument('--stdio-normal-port', default=54320, type=int, help="Port to send TCP logs from normal world")
+    parser.add_argument('--stdio-secure-port', default=54321, type=int, help="Port to send TCP logs from secure world")
 
     parser.add_argument('--afl-dir', default='optee/AFLplusplus/', type=str, help="Path to AFL root dir")
     parser.add_argument('--qemu-dir', default='optee/qemu/build/', type=str, help="Path to QEMU build directory")
@@ -28,6 +35,7 @@ def parse_args():
     parser.add_argument('--optee-out-dir', default='./optee/out/bin/', type=str, help="Path to optee out dir with compiled images")
     parser.add_argument('--optee-build-dir', default='./optee/build/', type=str, help="Path to optee build dir with build scripts")
     parser.add_argument('--exit', required=False, action='store_true', help='Exit QEMU after tasks are done')
+    parser.add_argument('--noout', required=False, action='store_true', help="Supress output from afl")
 
     subparsers = parser.add_subparsers(dest='command')
 
@@ -65,7 +73,7 @@ def make_abs(path: str) -> str:
 
 def prepare_qemu_args(options: argparse.Namespace) -> str:
     fmt = f"""-nographic \
-        -serial tcp:localhost:54320 -serial tcp:localhost:54321 \
+        -serial tcp:localhost:{options.stdio_normal_port} -serial tcp:localhost:{options.stdio_secure_port} \
         -smp 1 \
         -machine virt,secure=on,mte=off,gic-version=3,virtualization=false \
         -cpu max,sve=off,pauth-impdef=on \
@@ -129,6 +137,18 @@ def prepare_env(options: argparse.Namespace) -> Dict[str, str]:
     if 'skip_cpu_check' in options and options.skip_cpu_check:
         env['AFL_SKIP_CPUFREQ'] = '1'
 
+    if 'enable_statsd' in options and options.enable_statsd:
+        env['AFL_STATSD'] = '1'
+
+        if 'statsd_host' in options:
+            host, port = options.statsd_host.split(':')
+            env['AFL_STATSD_HOST'] = host
+            env['AFL_STATSD_PORT'] = port
+
+        if 'statsd_flavor' in options and options.statsd_flavor is not None:
+            env['AFL_STATSD_TAGS_FLAVOR'] = options.statsd_flavor
+
+    print(env)
     return env
 
 def is_port_open(port: int) -> bool:
@@ -143,11 +163,12 @@ def launch_terminal(port: int, label: str, options: argparse.Namespace):
     Popen(shlex.split(f"gnome-terminal -t '{label}' -- {soc_term} {port}"))
 
 def launch_terminals(options: argparse.Namespace):
-    for port, label in zip([54320, 54321], ["Normal world", "Secure world"]):
-        if not is_port_open(port):
-            launch_terminal(port, label, options)
-            while not is_port_open(port):
-                time.sleep(0.01)
+    if 'launch_terminals' in options and options.launch_terminals:
+        for port, label in zip([54320, 54321], ["Normal world", "Secure world"]):
+            if not is_port_open(port):
+                launch_terminal(port, label, options)
+                while not is_port_open(port):
+                    time.sleep(0.01)
 
 libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
 libc.mount.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_ulong, ctypes.c_char_p)
@@ -196,12 +217,13 @@ def run_tcgen(options: argparse.Namespace):
     run_qemu(options, 'tcgen')
 
 def create_disk_in_tmpfs(options: argparse.Namespace) -> str:
-    drive = os.path.join(make_abs(options.tmpfs), 'disk.qcow2')
+    id = uuid.uuid4()
+    drive = os.path.join(make_abs(options.tmpfs), f'{id}.qcow2')
     if not os.path.isfile(drive):
         check_call(shlex.split(f"qemu-img create -f qcow2 {drive} 128M"))
     return drive
 
-def run_fuzzer(options: argparse.Namespace):
+def run_fuzzer(options: argparse.Namespace) -> Popen:
     optee_out_dir = make_abs(options.optee_out_dir)
 
     afl_bin = os.path.join(optee_out_dir, 'afl-fuzz')
@@ -237,11 +259,17 @@ def run_fuzzer(options: argparse.Namespace):
     print(cmd)
     print(env)
     launch_terminals(options)
-    Popen(shlex.split(cmd), cwd=optee_out_dir, env=env).communicate()
+
+    if options.noout:
+        return Popen(shlex.split(cmd), cwd=optee_out_dir, env=env, stdout=PIPE, stderr=PIPE)
+    else:
+        return Popen(shlex.split(cmd), cwd=optee_out_dir, env=env)
+
 
 
 def main():
     args = parse_args()
+    print(args)
 
     if args.command == 'qemu':
         run_qemu(args, None)
@@ -250,7 +278,10 @@ def main():
     elif args.command == 'tcgen':
         run_tcgen(args)
     elif args.command == 'fuzzer':
-        run_fuzzer(args)
+        run_fuzzer(args).communicate()
+
+    if args.drive is not None:
+        os.remove(args.drive)
 
 if __name__ == '__main__':
     main()
