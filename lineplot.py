@@ -49,10 +49,10 @@ class LinePlot():
     def plot(self, metric: str, data_dir: str, time: float, ticks: int):
         cfg = METRIC[metric]
         data = self._prepare_data(cfg.metric, data_dir)
-        plt.xticks(ticks=range(0, int(time)))
         maxticks = max(len(Y) for _, Y in data.items())
         xticks = range(0, maxticks, maxticks // ticks)
-        labels = [ datetime.timedelta(seconds=time * i / ticks) for i in range(0, ticks) ]
+        labels = [ datetime.timedelta(seconds=time * i / len(xticks)) for i in range(0, len(xticks)) ]
+        print(xticks, labels)
         plt.xticks(xticks, labels, rotation=45)
         plt.xlabel("Time in hours:minutes:seconds")
         plt.ylabel(cfg.ylabel)

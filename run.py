@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--launch-terminals', required=False, action='store_true', help="Launch terminals")
     parser.add_argument('--stdio-normal-port', default=54320, type=int, help="Port to send TCP logs from normal world")
     parser.add_argument('--stdio-secure-port', default=54321, type=int, help="Port to send TCP logs from secure world")
+    parser.add_argument('--testcase-decoding-mode', choices=['dsl', 'direct'], default='dsl', help="Select the test case decoding mechanism")
 
     parser.add_argument('--afl-dir', default='optee/AFLplusplus/', type=str, help="Path to AFL root dir")
     parser.add_argument('--qemu-dir', default='optee/qemu/build/', type=str, help="Path to QEMU build directory")
@@ -94,7 +95,7 @@ def prepare_qemu_args(options: argparse.Namespace) -> str:
         fmt += f"-drive file={options.drive} "
 
     args = options.kernel_args
-    fmt += f"-append 'console=ttyAMA0,38400 keep_bootcon root=/dev/vda2 {args if args is not None else ''} {'exit' if options.exit else ''}'"
+    fmt += f"-append 'console=ttyAMA0,38400 keep_bootcon root=/dev/vda2 mode={options.testcase_decoding_mode} {args if args is not None else ''} {'exit' if options.exit else ''}'"
 
     return fmt
 

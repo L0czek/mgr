@@ -11,6 +11,7 @@ import asyncio
 import aiofiles
 import aiofiles.os
 import argparse
+from tqdm import tqdm
 from run import run_fuzzer
 
 @dataclass()
@@ -42,6 +43,7 @@ class FuzzerConfig:
     input: str = './in'
     output: str = './out'
     noout: bool = True
+    testcase_decoding_mode: str = 'dsl'
 
     def prepare(self, index: int, subdir: str):
         cfg = deepcopy(self)
@@ -146,7 +148,7 @@ class FuzzerInstance():
         self.metric_socket.close()
 
 class Benchmark():
-    def __init__(self, mode: str, benchmark_dir: str, corpus: str):
+    def __init__(self, mode: str, benchmark_dir: str, corpus: str, decoding_mode: str):
         self.mode = mode
         self.benchmark_dir = benchmark_dir
         self.corpus = corpus
@@ -162,11 +164,16 @@ class Benchmark():
         elif mode == "tznorevert":
             self.cfg.tznorevert = True
 
-    async def run_for(self, threads: int, time: float):
+        self.cfg.testcase_decoding_mode = decoding_mode
+
+    async def run_for(self, threads: int, time: float, progress: bool):
         logging.info("run_for")
         instances = []
         for n in range(threads):
             instances.append(asyncio.create_task(self.run_instance(n, time)))
+
+        for _ in tqdm(range(int(time))):
+            await asyncio.sleep(1)
 
         await asyncio.gather(*instances)
 
@@ -189,14 +196,16 @@ async def main():
     parser.add_argument('--dir', type=str, default='benchmarks', help="Directory to store benchmark logs")
     parser.add_argument('--time', type=float, default=3600 * 2, help="Run for n seconds")
     parser.add_argument('--corpus', type=str, help="Coprus directory")
+    parser.add_argument('--testcase-decoding-mode', type=str, choices=['dsl', 'direct'], default='dsl', help="Test case decoding mode")
+    parser.add_argument('--progress', required=False, action='store_true', help="Show progress bar")
 
     args = parser.parse_args()
 
     if os.path.isdir(args.dir):
         await aioshutil.rmtree(args.dir)
     await aiofiles.os.makedirs(args.dir)
-    benchmark = Benchmark(args.mode, args.dir, args.corpus)
-    await benchmark.run_for(args.threads, args.time)
+    benchmark = Benchmark(args.mode, args.dir, args.corpus, args.testcase_decoding_mode)
+    await benchmark.run_for(args.threads, args.time, args.progress)
 
 if __name__ == "__main__":
     logging.getLogger("asyncio")
