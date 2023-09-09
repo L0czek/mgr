@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--stdio-normal-port', default=54320, type=int, help="Port to send TCP logs from normal world")
     parser.add_argument('--stdio-secure-port', default=54321, type=int, help="Port to send TCP logs from secure world")
     parser.add_argument('--testcase-decoding-mode', choices=['dsl', 'direct'], default='dsl', help="Select the test case decoding mechanism")
-    parser.add_argument('--no-affinity', type=bool, required=False, action='store_true', help="Disable CPU pinning in AFL")
+    parser.add_argument('--no-affinity', required=False, action='store_true', help="Disable CPU pinning in AFL")
 
     parser.add_argument('--afl-dir', default='optee/AFLplusplus/', type=str, help="Path to AFL root dir")
     parser.add_argument('--qemu-dir', default='optee/qemu/build/', type=str, help="Path to QEMU build directory")
