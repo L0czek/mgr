@@ -10,6 +10,7 @@ import ctypes
 import ctypes.util
 from subprocess import Popen, PIPE, check_call
 from typing import Dict
+from functools import partial
 import uuid
 
 DIR = os.path.dirname(__file__)
@@ -29,6 +30,7 @@ def parse_args():
     parser.add_argument('--stdio-normal-port', default=54320, type=int, help="Port to send TCP logs from normal world")
     parser.add_argument('--stdio-secure-port', default=54321, type=int, help="Port to send TCP logs from secure world")
     parser.add_argument('--testcase-decoding-mode', choices=['dsl', 'direct'], default='dsl', help="Select the test case decoding mechanism")
+    parser.add_argument('--no-affinity', type=bool, required=False, action='store_true', help="Disable CPU pinning in AFL")
 
     parser.add_argument('--afl-dir', default='optee/AFLplusplus/', type=str, help="Path to AFL root dir")
     parser.add_argument('--qemu-dir', default='optee/qemu/build/', type=str, help="Path to QEMU build directory")
@@ -148,8 +150,9 @@ def prepare_env(options: argparse.Namespace) -> Dict[str, str]:
 
         if 'statsd_flavor' in options and options.statsd_flavor is not None:
             env['AFL_STATSD_TAGS_FLAVOR'] = options.statsd_flavor
+    if 'no_affinity' in options and options.no_affinity:
+        env['AFL_NO_AFFINITY'] = '1'
 
-    print(env)
     return env
 
 def is_port_open(port: int) -> bool:
@@ -224,7 +227,7 @@ def create_disk_in_tmpfs(options: argparse.Namespace) -> str:
         check_call(shlex.split(f"qemu-img create -f qcow2 {drive} 128M"))
     return drive
 
-def run_fuzzer(options: argparse.Namespace) -> Popen:
+def run_fuzzer(options: argparse.Namespace):
     optee_out_dir = make_abs(options.optee_out_dir)
 
     afl_bin = os.path.join(optee_out_dir, 'afl-fuzz')
@@ -261,7 +264,13 @@ def run_fuzzer(options: argparse.Namespace) -> Popen:
     print(env)
     launch_terminals(options)
 
-    if options.noout:
+
+
+    if options.afl_log_file:
+        out = open(options.afl_log_file, "wb")
+        err = open(options.afl_log_file + ".err", "wb")
+        return Popen(shlex.split(cmd), cwd=optee_out_dir, env=env, stdout=out, stderr=err)
+    elif options.noout:
         return Popen(shlex.split(cmd), cwd=optee_out_dir, env=env, stdout=PIPE, stderr=PIPE)
     else:
         return Popen(shlex.split(cmd), cwd=optee_out_dir, env=env)
@@ -279,7 +288,7 @@ def main():
     elif args.command == 'tcgen':
         run_tcgen(args)
     elif args.command == 'fuzzer':
-        run_fuzzer(args).communicate()
+        run_fuzzer(args)().communicate()
 
     if args.drive is not None:
         os.remove(args.drive)

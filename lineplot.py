@@ -39,6 +39,9 @@ class LinePlot():
         return data
 
     def _filter_metric(self, data, metric: str):
+        for _, i in data.items():
+            print(i.keys())
+
         return {
             index:instance[metric] for index, instance in data.items()
         }

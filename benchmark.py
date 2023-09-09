@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from asyncio.taskgroups import TaskGroup
 from dataclasses import asdict, dataclass
 from copy import deepcopy
 import socket
@@ -13,6 +14,8 @@ import aiofiles.os
 import argparse
 from tqdm import tqdm
 from run import run_fuzzer
+from multiprocessing import Process, Pipe
+import select
 
 @dataclass()
 class FuzzerConfig:
@@ -44,6 +47,7 @@ class FuzzerConfig:
     output: str = './out'
     noout: bool = True
     testcase_decoding_mode: str = 'dsl'
+    no_affinity: bool = True # This is required to work, just says how shitty this setup is
 
     def prepare(self, index: int, subdir: str):
         cfg = deepcopy(self)
@@ -68,8 +72,50 @@ class FuzzerConfig:
         host, port = cfg.statsd_host.split(":")
         cfg.statsd_host = f"{host}:{int(port) + index}"
 
-        print(cfg)
         return cfg
+
+class TCPDumper():
+    def __init__(self, port: int, filename: str) -> None:
+        self.port = port
+        self.filename = filename
+
+    def dump(self, shutdown_pipe):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', self.port))
+        sock.listen()
+        client, _ = sock.accept()
+
+        with open(self.filename, 'wb') as file:
+            while True:
+                rlist, _, _ = select.select([client, shutdown_pipe], [], [])
+
+                for fd in rlist:
+                    if fd is client:
+                        file.write(client.recv(0x1000))
+                        file.flush()
+                    else:
+                        return
+
+class UDPDumper():
+    def __init__(self, port: int, filename: str) -> None:
+        self.port = port
+        self.filename = filename
+    def dump(self, shutdown_pipe):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', self.port))
+
+        with open(self.filename, 'wb') as file:
+            while True:
+                rlist, _, _ = select.select([sock, shutdown_pipe], [], [])
+
+                for fd in rlist:
+                    if fd is sock:
+                        file.write(sock.recv(0x1000))
+                        file.flush()
+                    else:
+                        return
 
 
 class FuzzerInstance():
@@ -78,23 +124,6 @@ class FuzzerInstance():
 
     async def setup(self, index: int, subdir: str, corpusdir: str):
         self.cfg = self.cfg.prepare(index, subdir)
-        self.metric_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.metric_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.metric_socket.setblocking(False)
-        host, port = self.cfg.statsd_host.split(':')
-        self.metric_socket.bind((host, int(port)))
-
-        self.normal_socket_srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-        self.normal_socket_srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.normal_socket_srv.setblocking(False)
-        self.normal_socket_srv.bind(('127.0.0.1', self.cfg.stdio_normal_port))
-        self.normal_socket_srv.listen()
-
-        self.secure_socket_srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-        self.secure_socket_srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.secure_socket_srv.setblocking(False)
-        self.secure_socket_srv.bind(('127.0.0.1', self.cfg.stdio_secure_port))
-        self.secure_socket_srv.listen()
 
         DIR = os.path.dirname(__file__)
         os.mkdir(subdir)
@@ -103,49 +132,39 @@ class FuzzerInstance():
         self.normal_log = os.path.join(DIR, subdir, 'normal.log')
         self.secure_log = os.path.join(DIR, subdir, 'secure.log')
         self.metric_log = os.path.join(DIR, subdir, 'metric.log')
-
+        _, port = self.cfg.statsd_host.split(':')
+        self.metric_dumper = UDPDumper(int(port), self.metric_log)
+        self.normal_dumper = TCPDumper(self.cfg.stdio_normal_port, self.normal_log)
+        self.secure_dumper = TCPDumper(self.cfg.stdio_secure_port, self.secure_log)
 
         for testcase in glob.glob(os.path.join(corpusdir, '*')):
             await aioshutil.copy(testcase, self.cfg.input)
 
-    async def dump_tcp(self, sock: socket.socket, path: str):
-        try:
-            loop = asyncio.get_event_loop()
-            client, _ = await loop.sock_accept(sock)
-            client.setblocking(False)
-            await self.socket_to_file(client, path)
-        except:
-            pass
-
-    async def dump_udp(self, sock: socket.socket, path: str):
-        try:
-            await self.socket_to_file(sock, path)
-        except:
-            pass
-
-    async def socket_to_file(self, sock: socket.socket, path: str):
-        loop = asyncio.get_event_loop()
-        async with aiofiles.open(path, 'wb') as file:
-            while True:
-                data = await loop.sock_recv(sock, 0x1000)
-                await file.write(data)
-
     async def run(self, time: float):
-        async with asyncio.TaskGroup() as tg:
-            _normal_stdio = asyncio.create_task(self.dump_tcp(self.normal_socket_srv, self.normal_log))
-            _secure_stdio = asyncio.create_task(self.dump_tcp(self.secure_socket_srv, self.secure_log))
-            _metric_io = asyncio.create_task(self.dump_udp(self.metric_socket, self.metric_log))
-            process = run_fuzzer(argparse.Namespace(**asdict(self.cfg)))
+        metric_log_a, metric_log_b = Pipe()
+        metric_log = Process(target=self.metric_dumper.dump, args=(metric_log_b,))
+        normal_log_a, normal_log_b = Pipe()
+        normal_log = Process(target=self.normal_dumper.dump, args=(normal_log_b,))
+        secure_log_a, secure_log_b = Pipe()
+        secure_log = Process(target=self.secure_dumper.dump, args=(secure_log_b,))
 
-            await asyncio.sleep(time)
+        metric_log.start()
+        normal_log.start()
+        secure_log.start()
+        process = run_fuzzer(argparse.Namespace(**asdict(self.cfg)))
 
-            process.terminate()
-            process.communicate()
+        await asyncio.sleep(time)
 
-    async def finish(self):
-        self.normal_socket_srv.close()
-        self.secure_socket_srv.close()
-        self.metric_socket.close()
+        process.terminate()
+        process.communicate()
+
+        metric_log_a.send("DUPA")
+        normal_log_a.send("DUPA")
+        secure_log_a.send("DUPA")
+
+        metric_log.join()
+        normal_log.join()
+        secure_log.join()
 
 class Benchmark():
     def __init__(self, mode: str, benchmark_dir: str, corpus: str, decoding_mode: str):
@@ -167,27 +186,18 @@ class Benchmark():
         self.cfg.testcase_decoding_mode = decoding_mode
 
     async def run_for(self, threads: int, time: float, progress: bool):
-        logging.info("run_for")
-        instances = []
-        for n in range(threads):
-            instances.append(asyncio.create_task(self.run_instance(n, time)))
+        instances = [ FuzzerInstance(self.cfg) for _ in range(threads) ]
 
-        for _ in tqdm(range(int(time))):
-            await asyncio.sleep(1)
+        for index, inst in enumerate(tqdm(instances)):
+            await inst.setup(index, os.path.join(self.benchmark_dir, str(index)), self.corpus)
 
-        await asyncio.gather(*instances)
+        async with TaskGroup() as tg:
+            futures = [ asyncio.create_task(inst.run(time)) for inst in instances ]
 
-    async def run_instance(self, index: int, time: float):
-        logging.info(f"Starting {index} fuzzer")
-        instance = FuzzerInstance(self.cfg)
-        await instance.setup(index, os.path.join(self.benchmark_dir, str(index)), self.corpus)
+            for _ in tqdm(range(int(time))):
+                await asyncio.sleep(1)
 
-        try:
-            await instance.run(time)
-        except Exception as e:
-            logging.error(f"Encountered exception while running fuzzer {index}: {e}")
-
-        await instance.finish()
+            asyncio.gather(*futures)
 
 async def main():
     parser = argparse.ArgumentParser("benchmark")
