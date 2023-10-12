@@ -1,0 +1,111 @@
+\cleardoublepage
+\section{Tests and metrics} \label{chap:tests}
+
+\subsection{Test environment description}
+
+\tikzstyle{zone} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{mod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+\tikzstyle{darrow} = [thick,<->,>=stealth]
+
+\pgfdeclarelayer{background0}
+\pgfdeclarelayer{background1}
+\pgfsetlayers{background0, background1,main}
+
+\begin{figure}[h!]
+    \centering
+
+    \begin{tikzpicture}
+        \node (dsl) [mod] { Call decoder };
+        \node (serializer) [mod, right of=dsl, xshift=3.25cm] { Serializer };
+        \node (deserializer) [mod, right of=serializer, xshift=2.75cm] { Deserializer };
+        \node (handler) [mod, right of=deserializer, xshift=3.25cm] { Handler };
+
+        \begin{pgfonlayer}{background0}
+            \node (target) [zone, fit={(dsl)}, label={ Target API }, text height=1.5cm, text width=3.5cm] {};
+        \end{pgfonlayer}        
+
+        \begin{pgfonlayer}{background0}
+            \node (pipe) [zone, fit={(serializer) (deserializer)}, label={ Data transfer }, text width=7.5cm, text height=1.5cm] {};
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background0}
+            \node (fuzz) [zone, fit={(handler)}, text width=3.5cm, text height=1.5cm, label={ Fuzzer target }] {};
+        \end{pgfonlayer}
+
+        \draw [darrow] (dsl) -- (serializer);
+        \draw [darrow] (serializer) -- (deserializer);
+        \draw [darrow] (deserializer) -- (handler);
+        
+    \end{tikzpicture}
+    
+    \caption{Test environment schematic}
+    \label{fig:testenvirsch}
+\end{figure}
+
+\subsection{Comparing fuzzing speed}
+
+\subsubsection{With save and restore mechanism active}
+
+\begin{figure}[h!]
+    \centering
+    \begin{tabular}{c|c}
+        \subfloat[Native serialization speed]{\includesvg[width=.5\textwidth]{tex/plots/normal_speed.svg}} &
+        \subfloat[Custom serialization speed]{\includesvg[width=.5\textwidth]{tex/plots/fast_speed.svg}} \\
+        \subfloat[Native crashes count]{\includesvg[width=.5\textwidth]{tex/plots/normal_crashes.svg}} &
+        \subfloat[Custom crashes count]{\includesvg[width=.5\textwidth]{tex/plots/custom_crashes.svg}} \\
+    \end{tabular}
+    \caption{Native and custom serialization mechanism comparison}
+    \label{fig:nat_cus_cmp}
+\end{figure}
+
+\subsubsection{Without restoring the state}
+
+\begin{figure}[h!]
+    \centering
+    \begin{tabular}{c|c}
+        \subfloat[Fuzzing speed from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} &
+        \subfloat[Fuzzing speed from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} \\
+        \subfloat[Crashes count from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} &
+        \subfloat[Crashes count from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} \\
+    \end{tabular}
+    \caption{Fuzzing from Linux and Trustzone}
+    \label{fig:tz_norevert_fuzzing}
+\end{figure}
+
+\subsubsection{Comparing these results}
+
+\begin{figure}[h!]
+    \centering
+    \begin{tabular}{c|c}
+        \subfloat[Fuzzing speed]{\includesvg[width=.5\textwidth]{tex/plots/speed_boxplot.svg}} &
+        \subfloat[Total crashes count]{\includesvg[width=.5\textwidth]{tex/plots/crashes_boxplot.svg}} \\
+    \end{tabular}
+    \caption{Results comparison}
+    \label{fig:speed_res}
+\end{figure}
+
+\subsubsection{Memory resources utilization}
+
+\begin{figure}[h!]
+    \centering
+    \begin{tabular}{cc}
+         \subfloat[RAM usage over time]{\includesvg[width=.5\textwidth]{tex/plots/ram_line.svg}} &
+         \subfloat[RAM comparison]{\includesvg[width=.5\textwidth]{tex/plots/ram_box.svg}}
+    \end{tabular}
+    \caption{Comparing RAM memory usage by different fuzzing methods}
+    \label{fig:ramusage}
+\end{figure}
+
+\subsection{Structured vs direct fuzzing}
+
+\begin{figure}
+    \centering
+    \begin{tabular}{cc}
+        \subfloat[Total crashes count over time]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_line.svg}} &
+        \subfloat[Total crashes comparison]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_box.svg}} \\
+    \end{tabular}
+    \caption{Comparison of structured and direct fuzzing}
+    \label{fig:strustured_direct_cmp}
+\end{figure}
+
+\subsection{Analyzing the impact of corpus on fuzzing efficiency}

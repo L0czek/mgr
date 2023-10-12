@@ -1,88 +1,369 @@
 % Artykuł w recenzowanym czasopiśmie.
-@article{szczypiorski2015,
-    author    = {Szczypiorski, K. and Janicki, A. and Wendzel, S},
-    title     = {{T}he {G}ood, {T}he {B}ad {A}nd {T}he {U}gly: {E}valuation of {W}i-{F}i {S}teganography},
-    journal   = {Journal of Communications},
-    volume    = {10},
-    number    = {10},
-    pages     = {747--752},
-    publisher = {Journal of Communications (JCM)},
-    year      = {2015}
+%@article{szczypiorski2015,
+%    author    = {Szczypiorski, K. and Janicki, A. and Wendzel, S},
+%    title     = {{T}he {G}ood, {T}he {B}ad {A}nd {T}he {U}gly: {E}valuation of {W}i-{F}i {S}teganography},
+%    journal   = {Journal of Communications},
+%    volume    = {10},
+%    number    = {10},
+%    pages     = {747--752},
+%    publisher = {Journal of Communications (JCM)},
+%    year      = {2015}
+%}
+%
+%% Książka.
+%@book{goossens93,
+%    author    = {Michel Goossens and Frank Mittelbach and Alexander Samarin},
+%    title     = {The LaTeX Companion},
+%    publisher = {Addison-Wesley},
+%    address   = {Reading, Massachusetts},
+%    year      = {1993}
+%}
+%
+%% Fragment książki (np. zakres stron).
+%@inbook{wang97,
+%    author    = {Hao Wang},
+%    title     = {A Logical Journey: From G{\"o}del to Philosophy.},
+%    publisher = {A Bradford Book},
+%    pages     = {316},
+%    year      = {1997}
+%}
+%
+%% Fragment książki (np. esej), posiadający własny tytuł.
+%@incollection{goedel95,
+%    author    = {Kurt G{\"o}del},
+%    title     = {Texts relating to the ontological proof},
+%    booktitle = {Unpublished Essays and Lectures},
+%    publisher = {Oxford University Press},
+%    pages     = {429--437},
+%    year      = {1995}
+%}
+%
+%% Publikacja konferencyjna.
+%@inproceedings{benzmuller2014,
+%    author       = {{Ch}. Benzmuller and B. W. Paleo},
+%    title        = {Automating {G\"o}del’s {O}ntological {P}roof of {G}od’s {E}xistence with {H}igher-order {A}utomated {T}heorem {P}rovers},
+%    booktitle    = {European	Conference on Artificial Intelligence},
+%    publisher    = {IOS Press},
+%    howpublished = {Dostęp zdalny (10.04.2019): \url{http://page.mi.fu-berlin.de/cbenzmueller/papers/C40.pdf}},
+%    year         = {2014}
+%}
+%
+%% Raport techniczny.
+%@techreport{duqu2011,
+%    author      = {Bencsáth, B. and Pék, G. and Buttyán, L. and Félegyházi M.},
+%    title       = {{D}uqu: {A} {S}tuxnet-like malware found in the wild},
+%    institution = {Laboratory of Cryptography and System Security, Hungary},
+%    year        = {2011}
+%}
+%
+%% Specyfikacja techniczna.
+%@manual{shs2015,
+%    title        = {{FIPS} 180-4: {S}ecure {H}ash {S}tandard ({SHS})},
+%    howpublished = {Dostęp zdalny (13.03.2019): \url{https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf}},
+%    year         = {2015}
+%}
+%
+%% Praca magisterska.
+%@mastersthesis{wozniak2018,
+%    author = {Woźniak, Piotr},
+%    title  = {{P}rogramowanie kwadratowe w usuwaniu efektu rozmycia ruchu w fotografii cyfrowej},
+%    school = {Wydział Elektroniki i Technik Informacyjnych, Politechnika Warszawska},
+%    year   = {2018}
+%}
+%
+%% Nieopublikowany artykuł, dostępny np. tylko w internecie.
+%@unpublished{koons2005,
+%    author = {Koons, Robert C.},
+%    title  = {{S}obel on {G\"o}del’s {O}ntological {P}roof},
+%    note   = {Dostęp zdalny (25.04.2019): \url{http://www.robkoons.net/media/69b0dd04a9d2fc6dffff80b4ffffd524.pdf}},
+%    year   = {2005}
+%}
+%
+%% Źródło innego typu, np. repozytorium na GitHubie.
+%@misc{dcp19,
+%    author       = {Brodzki, Artur M.},
+%    title        = {{I}mplementation of own steganography protocol {DCP}-19, loosely based on {HICCUPS}},
+%    howpublished = {Dostęp zdalny (14.03.2019): \url{https://github.com/ArturB/DCP-19}},
+%    year         = {2019}
+%}
+%
+
+@misc{afl,
+    autor = {Michał Zalewski},
+    title = {american fuzzy lop},
+    howpublished = {Remote access (28.08.2023): \url{https://github.com/google/AFL}},
+    year = 2013
 }
 
-% Książka.
-@book{goossens93,
-    author    = {Michel Goossens and Frank Mittelbach and Alexander Samarin},
-    title     = {The LaTeX Companion},
-    publisher = {Addison-Wesley},
-    address   = {Reading, Massachusetts},
-    year      = {1993}
+@INPROCEEDINGS{coverage,
+  author={Kochhar, Pavneet Singh and Thung, Ferdian and Lo, David},
+  booktitle={2015 IEEE 22nd International Conference on Software Analysis, Evolution, and Reengineering (SANER)}, 
+  title={Code coverage and test suite effectiveness: Empirical study with real bugs in large systems}, 
+  year={2015},
+  volume={},
+  number={},
+  pages={560-564},
+  doi={10.1109/SANER.2015.7081877}}
+
+@INPROCEEDINGS{ibm_coverage,
+  author={Piwowarski, P. and Ohba, M. and Caruso, J.},
+  booktitle={Proceedings of 1993 15th International Conference on Software Engineering}, 
+  title={Coverage measurement experience during function test}, 
+  year={1993},
+  volume={},
+  number={},
+  pages={287-301},
+  doi={10.1109/ICSE.1993.346035}}
+
+@ARTICLE{fuzzing_state_of_art,
+  author={Liang, Hongliang and Pei, Xiaoxiao and Jia, Xiaodong and Shen, Wuwei and Zhang, Jian},
+  journal={IEEE Transactions on Reliability}, 
+  title={Fuzzing: State of the Art}, 
+  year={2018},
+  volume={67},
+  number={3},
+  pages={1199-1218},
+  doi={10.1109/TR.2018.2834476}}
+
+@software{aflpprepo,
+author = {Heuse, Marc and Eißfeldt, Heiko and Fioraldi, Andrea and Maier, Dominik},
+license = {AGPL-3.0-or-later},
+month = jan,
+title = {{AFL++}},
+url = {https://github.com/AFLplusplus/AFLplusplus},
+version = {4.00c},
+year = {2022}
 }
 
-% Fragment książki (np. zakres stron).
-@inbook{wang97,
-    author    = {Hao Wang},
-    title     = {A Logical Journey: From G{\"o}del to Philosophy.},
-    publisher = {A Bradford Book},
-    pages     = {316},
-    year      = {1997}
+@inproceedings {AFLplusplus-Woot20,
+author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
+booktitle = {14th {USENIX} Workshop on Offensive Technologies ({WOOT} 20)},
+year = {2020},
+publisher = {{USENIX} Association},
+month = aug,
 }
 
-% Fragment książki (np. esej), posiadający własny tytuł.
-@incollection{goedel95,
-    author    = {Kurt G{\"o}del},
-    title     = {Texts relating to the ontological proof},
-    booktitle = {Unpublished Essays and Lectures},
-    publisher = {Oxford University Press},
-    pages     = {429--437},
-    year      = {1995}
+@inproceedings{tracecoverage,
+author = {Häubl, Christian and Wimmer, Christian and Mössenböck, Hanspeter},
+year = {2013},
+month = {09},
+pages = {1-12},
+title = {Deriving code coverage information from profiling data recorded for a trace-based just-in-time compiler},
+journal = {ACM International Conference Proceeding Series},
+doi = {10.1145/2500828.2500829}
 }
 
-% Publikacja konferencyjna.
-@inproceedings{benzmuller2014,
-    author       = {{Ch}. Benzmuller and B. W. Paleo},
-    title        = {Automating {G\"o}del’s {O}ntological {P}roof of {G}od’s {E}xistence with {H}igher-order {A}utomated {T}heorem {P}rovers},
-    booktitle    = {European	Conference on Artificial Intelligence},
-    publisher    = {IOS Press},
-    howpublished = {Dostęp zdalny (10.04.2019): \url{http://page.mi.fu-berlin.de/cbenzmueller/papers/C40.pdf}},
-    year         = {2014}
+@article{dominiak2019efficient,
+  title={Efficient approach to fuzzing interpreters},
+  author={M. Dominiak AND W. Rauner},
+  journal={BlackHat Asia},
+  year={2019},
+  howpublished = {Remote access (28.08.2023): \url{https://i.blackhat.com/asia-19/Fri-March-29/bh-asia-Dominiak-Efficient-Approach-to-Fuzzing-Interpreters-wp.pdf}}
 }
 
-% Raport techniczny.
-@techreport{duqu2011,
-    author      = {Bencsáth, B. and Pék, G. and Buttyán, L. and Félegyházi M.},
-    title       = {{D}uqu: {A} {S}tuxnet-like malware found in the wild},
-    institution = {Laboratory of Cryptography and System Security, Hungary},
-    year        = {2011}
+%@inproceedings{ifuzz,
+%title = "Ifuzzer:: An evolutionary interpreter fuzzer using genetic programming",
+%author = "Spandan Veggalam and Sanjay Rawat and Istvan Haller and Herbert Bos",
+%year = "2016",
+%month = sep,
+%day = "15",
+%doi = "10.1007/978-3-319-45744-4_29",
+%language = "English",
+%isbn = "9783319457437",
+%volume = "9878",
+%pages = "581--601",
+%booktitle = "European Symposium on Research in Computer Security",
+%}
+
+@misc{syzkaller,
+    author = {David Drysdale},
+    title = {Coverage-guided kernel fuzzing with syzkaller},
+    howpublished = {Remote access (29.08.2023): \url{https://lwn.net/Articles/677764/}},
+    year = {2016}
 }
 
-% Specyfikacja techniczna.
-@manual{shs2015,
-    title        = {{FIPS} 180-4: {S}ecure {H}ash {S}tandard ({SHS})},
-    howpublished = {Dostęp zdalny (13.03.2019): \url{https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf}},
-    year         = {2015}
+@misc{syzkaller_repo,
+    author = {Google},
+    title = {syzkaller - kernel fuzzer},
+    howpublished = {Remote access (29.08.2023): \url{https://github.com/google/syzkaller}},
+    year = {2016}
+
 }
 
-% Praca magisterska.
-@mastersthesis{wozniak2018,
-    author = {Woźniak, Piotr},
-    title  = {{P}rogramowanie kwadratowe w usuwaniu efektu rozmycia ruchu w fotografii cyfrowej},
-    school = {Wydział Elektroniki i Technik Informacyjnych, Politechnika Warszawska},
-    year   = {2018}
+@article{vms,
+author = {Randal, Allison},
+title = {The Ideal Versus the Real: Revisiting the History of Virtual Machines and Containers},
+year = {2020},
+issue_date = {January 2021},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {53},
+number = {1},
+issn = {0360-0300},
+url = {https://doi.org/10.1145/3365199},
+doi = {10.1145/3365199},
+journal = {ACM Comput. Surv.},
+month = {feb},
+articleno = {5},
+numpages = {31},
+keywords = {virtualization, virtual machines, Containers}
 }
 
-% Nieopublikowany artykuł, dostępny np. tylko w internecie.
-@unpublished{koons2005,
-    author = {Koons, Robert C.},
-    title  = {{S}obel on {G\"o}del’s {O}ntological {P}roof},
-    note   = {Dostęp zdalny (25.04.2019): \url{http://www.robkoons.net/media/69b0dd04a9d2fc6dffff80b4ffffd524.pdf}},
-    year   = {2005}
+@inproceedings{qemutcg,
+author = {Bellard, Fabrice},
+title = {QEMU, a Fast and Portable Dynamic Translator},
+year = {2005},
+publisher = {USENIX Association},
+address = {USA},
+booktitle = {Proceedings of the Annual Conference on USENIX Annual Technical Conference},
+pages = {41},
+numpages = {1},
+location = {Anaheim, CA},
+series = {ATEC '05}
 }
 
-% Źródło innego typu, np. repozytorium na GitHubie.
-@misc{dcp19,
-    author       = {Brodzki, Artur M.},
-    title        = {{I}mplementation of own steganography protocol {DCP}-19, loosely based on {HICCUPS}},
-    howpublished = {Dostęp zdalny (14.03.2019): \url{https://github.com/ArturB/DCP-19}},
-    year         = {2019}
+@misc{qemutcgir,
+    author = {Airbus security lab},
+    title = {A deep dive into QEMU: The Tiny Code Generator (TCG), part 1},
+    howpublished = {Remote access (30.08.2023): \url{https://airbus-seclab.github.io/qemu_blog/tcg_p1.html}},
+    year = {2021}
+}
+
+@misc{qemurepo,
+    author = {family=People Et All},
+    title = {QEMU},
+    howpublished = {Remote access (06.09.2023): \url{https://github.com/qemu/qemu}},
+    year = {2011}
+}
+
+@misc{qemuthreads,
+    autor = {Stefan Hajnoczi and Red Hat},
+    title = {Towards Multi-threaded Device Emulation in QEMU},
+    howpublished = {Remote access (09.06.2023): \url{https://www.linux-kvm.org/images/a/a7/02x04-MultithreadedDevices.pdf}},
+    year = {2014}
+}
+
+@misc{trustzonedoc,
+    author = {ARM},
+    title = {TrustZone® technology for Armv8-M Architecture},
+    howpublished = {Remote access (30.08.2023): \url{https://developer.arm.com/documentation/100690/latest/}},
+    year = {2016}
+}
+
+@INPROCEEDINGS{opteeusage,
+  author={Nehal, Arshad and Ahlawat, Priyanka},
+  booktitle={2019 3rd International conference on Electronics, Communication and Aerospace Technology (ICECA)}, 
+  title={Securing IoT applications with OP-TEE from hardware level OS}, 
+  year={2019},
+  volume={},
+  number={},
+  pages={1441-1444},
+  doi={10.1109/ICECA.2019.8822040}}
+
+@misc{opteeblog,
+    author = {Akshay Bhat},
+    title = {Trusted Software Development Using OP-TEE},
+    howpublished = {Remote access (30.08.2023): \url{https://www.timesys.com/security/trusted-software-development-op-tee/}},
+    year = {2017}
+}
+
+@misc{rustbook,
+    author = {Steve Klabnik and Carol Nichols},
+    title = {The Rust Programming Language},
+    howpublished = {Remote access (31.08.2023): \url{https://doc.rust-lang.org/book/}},
+    year = {2016}
+}
+
+@misc{rustmemorysafety,
+      title={Memory-Safety Challenge Considered Solved? An In-Depth Study with All Rust CVEs}, 
+      author={Hui Xu and Zhuangbin Chen and Mingshen Sun and Yangfan Zhou and Michael Lyu},
+      year={2021},
+      eprint={2003.03296},
+      archivePrefix={arXiv},
+      primaryClass={cs.PL}
+}
+
+@article{rusthowunsafe,
+author = {Astrauskas, Vytautas and Matheja, Christoph and Poli, Federico and M\"{u}ller, Peter and Summers, Alexander J.},
+title = {How Do Programmers Use Unsafe Rust?},
+year = {2020},
+issue_date = {November 2020},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {4},
+number = {OOPSLA},
+url = {https://doi.org/10.1145/3428204},
+doi = {10.1145/3428204},
+journal = {Proc. ACM Program. Lang.},
+month = {nov},
+articleno = {136},
+numpages = {27},
+keywords = {empirical study, Rust, unsafe code, Rust hypothesis}
+}
+
+@inproceedings{rustunsafeissues,
+author = {Qin, Boqin and Chen, Yilun and Yu, Zeming and Song, Linhai and Zhang, Yiying},
+title = {Understanding Memory and Thread Safety Practices and Issues in Real-World Rust Programs},
+year = {2020},
+isbn = {9781450376136},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3385412.3386036},
+doi = {10.1145/3385412.3386036},
+booktitle = {Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation},
+pages = {763–779},
+numpages = {17},
+keywords = {Concurrency Bug, Bug Study, Rust, Memory Bug},
+location = {London, UK},
+series = {PLDI 2020}
+}
+
+@misc{ssabook,
+    author = {family=Lots of authors},
+    title = {Static Single Assignment Book},
+    howpublished = {Remote access (31.08.2023): \url{https://pfalcon.github.io/ssabook/latest/book-full.pdf}},
+    year = {2018}
+}
+
+@misc{xenfuzz,
+    author = {Tamas K Lengyel},
+    title = {Fuzzing Linux with Xen},
+    howpublished = {Remote access (03.09.2023): \url{https://media.defcon.org/DEF\%20CON\%2029/DEF\%20CON\%2029\%20presentations/Tamas\%20K\%20Lengyel\%20-\%20Fuzzing\%20Linux\%20with\%20Xen.pdf}},
+    year = {2021}
+}
+
+@misc{triforceafl,
+    author = {Jesse Hertz and Tim Newsham},
+    title = {Project Triforce: Run AFL On Everything},
+    howpublished = {Remote access (03.09.2023): \url{https://research.nccgroup.com/wp-content/uploads/2022/09/NCC-Group-whitepaper-TriforceAFL-2017.pdf}},
+    year = {2017}
+}
+
+@misc{gustavdoc,
+    author = {Stéphane Duverger and Anaïs Gant},
+    title = {GUSTAVE: Fuzz It Like It’s App},
+    howpublished = {Remote access (03.09.2023): \url{https://airbus-seclab.github.io/GUSTAVE_thcon/GUSTAVE_thcon.pdf}},
+    year = {2019}
+}
+
+@software{airbusqemu,
+    autor = {Stéphane Duverger},
+    title = {QEMU},
+    url = {https://github.com/airbus-seclab/qemu/tree/gustave},
+    year = {2019}
+}
+
+@misc{rustfuzzbook,
+    author = {family=People Et All},
+    title = {Rust Fuzz Book},
+    howpublished = {Remote access (03.09.2023): \url{https://rust-fuzz.github.io/book/}},
+    year = {2017}
+}
+
+@misc{opteefuzz,
+    author = {Martijn Bogaard},
+    title = {Fuzzing OP-TEE with AFL},
+    howpublished = {Remote access (05.09.2023): \url{https://static.linaro.org/connect/san19/presentations/san19-225.pdf}},
+    year = {2019}
 }

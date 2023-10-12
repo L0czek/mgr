@@ -1,0 +1,97 @@
+\cleardoublepage
+\section{What do we want to achieve and how?} \label{chap:why}
+In order to succeed with the task of fuzzing custom operating systems, I needed to find a quick way of running a test, recording and analyzing the results. The analysis part is usually performed by genetic algorithms embedded in fuzzers. Therefore, the designed solution should easily integrate with a well known fuzzer. In my case, being inspired by the \textit{Triforce AFL} project from \cite{triforceafl}, I have chosen the \textit{AFLplusplus} fuzzer. The next element in the puzzle is the emulator. There are a lot of widely available solution, but most of them aren't open source, which makes modification a real hassle. This narrows the choice to \textit{QEMU} and \textit{Xen}. Due to my experience with, \textit{QEMU} I've chosen this over \textit{Xen}. The target is a service running in the secure world in so-called \textit{Trustzone}. It runs under \textit{OPTEE OS} operating system and performs a couple of security operations. Since the application runs in \textit{Trustzone}, QEMU needs to exactly emulate a version of ARM which supports it. The host architecture is the \textit{Intel x86} as the tests are executed on an off-the-shelf laptop computer. 
+
+The \textit{Trustzone} technology was designed to provide services to application in the normal mode. Therefore, part of the setup is also be present in the \textit{Linux} operating system in the normal world. Its role is to set everything up and begin fuzzing by loading the special trusted application and invoking the function which starts fuzzing in the secure world. On the other hand, the secure world part is responsible for communication with the \textit{AFL} fuzzer through \textit{QEMU}. Furthermore, this is the part that calls the secure services. In an everyday situation, those services would be exposed to the normal world, but since this is just a demonstration setup, the fuzzer was integrated directly. On the other hand, calling services indirectly from normal world would most likely add some needless latency. Besides that, the secure part also performs the test case interpretation and the final function calls. 
+
+\subsection{Requirements for the emulator}
+This part of the setup has the most impact on fuzzing speed, as executing a test case takes much more time when compared to evaluating the results in \textit{AFL}. This is primarily caused by the fact that the target is an entire operating system. Additionally, when the emulated OS has different CPU architecture than the host OS, the instructions need to be emulated in software, which usually brings a lot of overhead. Therefore, all modifications to the emulator need to be as efficient as possible, not to waste more CPU time than required. The main tasks of the modified emulator are to communicate with the fuzzer and bring the operating system back up after each crash. The communication can be established by adding special virtual CPU instructions. As for storing the virtual machine state, many options and restoring policies will be evaluated to check which performs best.
+
+\subsection{Requirements for the test case interpretation}
+This thesis is about fuzzing services provided by a secure operating system which are written in \textit{Rust}. Therefore, the fuzzer needs to support a subset of \textit{Rust} language, which is enough to perform function calls and handle objects. The application provides the description of the target functions and classes to generate appropriate deserialization methods. It's provided via a simple declarative language designed specially to allow for specifying how to call functions using a simple set of primitives that can be directly created from the test case. Then, the fuzzer implements a compiler that transpiles the target description into \textit{Rust} code. The generated code implements the actual fuzzing routines, thus this solution can be classified as a fuzzer generator. Finally, the compiler generates macros allowing for generating test cases from function calls, a process that acts backwards to the fuzzing. This will be helpful in creating a corpus for fuzzer using existing tests. 
+
+\subsection{Fuzzing architecture}
+For clarity, figure \ref{fig:fuzzoverview} shows all the software components with the data flow paths. To distinguish between components which were created in this thesis, different colors were used:
+\begin{itemize}
+    \item \colorbox{green!30}{light green} - marks an open source project which was only slightly modified or adapted,
+    \item \colorbox{orange!30}{orange} - marks components which were fully created by me,
+    \item \colorbox{yellow!30}{yellow} - marks components whose modification were required,
+    \item \colorbox{green!60}{green} - marks an unmodified open source component.
+\end{itemize}
+In detail, the consists of three main components:
+\begin{enumerate}
+    \item The \textit{AFL++} fuzzer described in section \ref{sec:afl}.
+    \item The \textit{AFL to QEMU interface translator} whose role is to connect the fuzzer to QEMU, its implementation is provided in section \ref{sec:translator}.
+    \item The \textit{Fuzzer integration} described in \ref{sec:savevm} implements primarily the saving and restoring of the virtual machine state.
+    \item The \textit{Tiny Code Generator} is the instruction translator in \textit{QEMU} which provides a communication channel with the \textit{Test case decoder} as shown in \ref{sec:tcg}.
+    \item The \textit{OPTEE OS} is the special operating system running in \textit{Trustzone} as described in \ref{sec:tz}.
+    \item The \textit{Buildroot} which runs in the normal world and simulates the user of secure world's services.
+    \item The \textit{Initializer} is a simple application running under \textit{Buildroot} which is responsible for loading the trusted application package containing the test case decoder and secure services.
+    \item The \textit{Test case decoder} decodes the test case's bytes into function calls, it is described in section \ref{sec:testcase}.
+    \item The \textit{Secure services} is an application written in \textit{Rust} that utilizes \textit{OPTEE OS} kernel's secure APIs.
+\end{enumerate}
+
+\tikzstyle{opensource} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{custom} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+\tikzstyle{opensourcemod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!60]
+\tikzstyle{custommod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!60]
+\tikzstyle{modifiedmod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=yellow!30]
+\tikzstyle{host} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=brown!30]
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{darrow} = [thick,<->,>=stealth]
+
+\pgfdeclarelayer{background0}
+\pgfdeclarelayer{background1}
+\pgfdeclarelayer{background2}
+\pgfsetlayers{background0, background1, background2, main}
+
+\begin{figure}[h!]
+    \centering
+
+    \begin{tikzpicture}
+        \node (kernel) [opensourcemod, text width=3cm] { OPTEE kernel };
+        \node (target) [custommod, below of=kernel, text width=2cm, yshift=-0.5cm] { Secure services };
+        \node (fuzzer) [custommod, text width=2cm, below of=target, yshift=-0.5cm] { Test case decoder };
+
+        
+        \begin{pgfonlayer}{background1}
+            \node (optee) [opensource, fit={(fuzzer) (target) (kernel)}, text width=4cm, text height=5cm, label={OPTEE OS}] {};
+        \end{pgfonlayer}
+        
+        \node (kernel2) [opensourcemod, text width=3cm, right of=kernel, xshift=4cm] { Linux kernel };
+        \node (fuzz2) [custommod, below of=kernel2, yshift=-0.5cm] { Initializer };
+
+        \begin{pgfonlayer}{background1}
+            \node (buildroot) [opensource, fit={(kernel2) (fuzz2)}, text width=4cm, text height=3.5cm, label={Buildroot}] {};
+        \end{pgfonlayer}
+
+        \node (fuzzerint) [custommod, below of=fuzzer, yshift=-1.5cm, xshift=0cm] { Fuzzer integration };
+        \node (tcg) [modifiedmod, below of=fuzz2, yshift=-3cm] { \textit{Tiny Code Generator }};
+
+        \begin{pgfonlayer}{background0}
+            \node (qemu) [opensource, fit={(optee) (fuzzerint) (tcg)}, text width=10cm, text height=8.5cm,label={QEMU}, xshift=0cm] {};
+        \end{pgfonlayer}
+
+        \node (gen) [opensourcemod, left of=kernel, xshift=-4.5cm] { Genetic Algorithm };
+        
+        \begin{pgfonlayer}{background1}
+            \node (afl) [opensource, fit={(gen)}, text height=2cm, text width=4cm, label={AFL++ fuzzer}] {};
+        \end{pgfonlayer}
+        
+        \node (srv) [custommod, below of=afl, yshift=-2cm, text width=3cm] { AFL to QEMU interface translator };
+
+        \node (host) [host, below of=qemu, text width=14.5cm, yshift=-4.5cm, xshift=-2cm] { Intel x86 host computer };
+
+        \draw [darrow] (afl) -- (srv);
+        \draw [darrow] (srv) |- (fuzzerint);
+        \draw [darrow] (fuzzerint) -- (fuzzer);
+        \draw [darrow] (fuzzer) -- (target);
+        \draw [darrow] (target) --++ (0cm, +1cm);
+        
+    \end{tikzpicture}
+    
+    \caption{Fuzzing setup overview}
+    \label{fig:fuzzoverview}
+\end{figure}
+

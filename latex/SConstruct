@@ -13,7 +13,7 @@ from SCons.Script.SConscript import SConsEnvironment
 # Build targets
 # --------------
 
-LATEXMK_BASE = ["latexmk", "-synctex=1", "--interaction=nonstopmode"]
+LATEXMK_BASE = ["latexmk", "-synctex=1", "--interaction=nonstopmode", "-shell-escape"]
 
 # Build tex file using pdflatex
 def target_pdf(tex_file: Path, pdf_file: Path):
