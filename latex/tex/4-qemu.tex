@@ -82,7 +82,7 @@ That's why the researchers designed a sophisticated procedure aimed to make this
 
 \clearpage
 
-\paragraph{QEMU's native serialization mechanism}
+\paragraph{QEMU's native serialization mechanism} \label{sec:qemu_nat}
 Another possibility of restoring the state of the target operating system involves a functionality which is already built-in \textit{QEMU}. The native snapshot mechanism is used by \textit{AIRBUS} security lab in their \textit{Gustav} fuzzer from \cite{gustavdoc}. It is primarily used to fuzz embedded \textit{Power PC} systems. The modified \textit{QEMU} that is used by their fuzzer is available at \cite{airbusqemu}. In general, this snapshot functionality relies on halting the virtual machine and then directly serializing every element the virtual machine consists of. Those entities are by default saved in the unused area of an emulated hard drive. Usually, this tool is invoked through the so-called “QEMU monitor” which is simply the user console interface of QEMU. As a result, this mechanism executes in the context of the \textit{mainloop} thread. This is specially done this way, as running the serialization requires stopping the \textit{vCPU} threads and locking the \textit{IO Thread}. Unfortunately, the special instruction used for communicating with the target are also running inside this \textit{vCPU} thread. Consequently, it is required to schedule a task to be executed in the context of \textit{mainloop}.
 
 This process requires several action to successfully schedule a snapshot task in the \textit{mainloop} with all the \textit{vCPU} paused. The illustration of all steps is shown in figure \ref{fig:native_savevm}. First, the \textit{IO Thread} is locked to enable managing of others virtual processors. Then, the emulated CPUs are paused and the \textit{IO Thread} is unlocked to dispatch any remaining events. After the events processing is finished, the \textit{vCPU} threads are halted. In the end, a task is scheduled in the context of the \textit{mainloop} thread. It takes the snapshot and then resumes all virtual \textit{CPU} threads. The restore operation looks exactly like the saving one, with the only difference being that the \textit{mainloop} task restores from snapshot instead of taking it.
@@ -114,7 +114,7 @@ This process requires several action to successfully schedule a snapshot task in
     \caption{Saving state using the native mechanism}
     \label{fig:native_savevm}
 \end{figure}
-\paragraph{Creating custom serialization mechanism}
+\paragraph{Creating custom serialization mechanism} \label{sec:qemu_cus}
 The native snapshot mechanism does save the entire virtual machine, which in case of a \textit{Trustzone} enabled ARM virtual machine consists of both the secure and insecure parts. However, as the fuzzing target lives solely on the secure side, saving the non-secure part is unnecessary. Furthermore, QEMU saves the snapshot on the virtual machine disk, which adds the delay of disk operations to the serialization. This can be optimized by allocating memory and copy from memory to memory the critical parts that needs to be saved. In case there is no dedicated hardware which the operating system relies on, it's enough to save and restore just the following entities:
 \begin{enumerate}
     \item the CPU registers,

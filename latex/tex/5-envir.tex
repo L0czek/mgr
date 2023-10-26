@@ -16,7 +16,7 @@ This chapter focuses on exploring the inner workings of the test case decoder me
 The second task is all about seeding the \textit{AFLplusplus} corpus using unit tests of the target. Since the compiler is used to generate the test case interpreter it can also be used to go the opposite way and create test cases from function calls. This process works as follows:
 \begin{enumerate}
     \item The compiler uses the target description to generate the test case reverser. In detail generated \textit{Rust} source code contains an augmented replica of the target that acts as a proxy and traces the function parameters to assemble the test case. The details of this process are described in section \ref{sec:testint}.
-    \item The module containing the unit tests is modified to used the generated replica to seamlessly introduce instrumentation. After each unit test the generated sequence of bytes is returned to \textit{QEMU} to be saved in the corpus folder of \textit{AFLplusplus}.
+    \item The module containing the unit tests is modified to use the generated replica to seamlessly introduce instrumentation. After each unit test the generated sequence of bytes is returned to \textit{QEMU} to be saved in the corpus folder of \textit{AFLplusplus}.
 \end{enumerate}
 Similarly, like in chapter \ref{chap:why} the background color are used to distinguish open source modules from the custom ones, created by me. Just as a quick reminder the colors mean the following:
 \begin{itemize}

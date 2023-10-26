@@ -3,6 +3,15 @@
 
 \subsection{Test environment description}
 
+The target of \textit{fuzzing} in this thesis is the \textit{Secure services} module which runs under \textit{OPTEE OS} operating system. Architecturally, this part of the setup can be divided into four parts, as seen in figure \ref{fig:testenvirsch}. These parts are responsible for the following tasks:
+\begin{enumerate}
+    \item \textit{API interface} - it exposes the external interface to the fuzzer, by providing function definitions,
+    \item \textit{Serializer} - this submodule converts structured data that is function's arguments and class objects to a simple bytes stream,
+    \item \textit{Deserializer} - this segment translates back the data into objects,
+    \item \textit{Handler} - this modules executes the actual functions whose invocation was requested by the \textit{API interface} layer.
+\end{enumerate}
+This design is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases the data needs to cross the barrier of address spaces which means that any guarantees about the structure of the data is lost. For this reason the \textit{Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{Deserializer} and bypass the entire design from the previous chapter. Thanks to this we can compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the \textit{fuzzing} process.
+
 \tikzstyle{zone} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
 \tikzstyle{mod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
 \tikzstyle{darrow} = [thick,<->,>=stealth]
@@ -15,7 +24,7 @@
     \centering
 
     \begin{tikzpicture}
-        \node (dsl) [mod] { Call decoder };
+        \node (dsl) [mod] { API interface };
         \node (serializer) [mod, right of=dsl, xshift=3.25cm] { Serializer };
         \node (deserializer) [mod, right of=serializer, xshift=2.75cm] { Deserializer };
         \node (handler) [mod, right of=deserializer, xshift=3.25cm] { Handler };
@@ -42,9 +51,12 @@
     \label{fig:testenvirsch}
 \end{figure}
 
+\pagebreak
 \subsection{Comparing fuzzing speed}
 
-\subsubsection{With save and restore mechanism active}
+\subsubsection{Native and custom virtual machine serialization mechanism}
+
+These tests focus on comparing the speed of the serialization mechanism which is required to save the virtual machine state after the system has finished initialization and restore when the test case finished executing. The results are shown in figure \ref{fig:nat_cus_cmp}. On the left the results for native mechanism as described in \ref{sec:qemu_nat} are presented. Similarly, the right part of the figure shows the custom one which was described in \ref{sec:qemu_cus}.
 
 \begin{figure}[h!]
     \centering
@@ -59,20 +71,22 @@
 \end{figure}
 
 \subsubsection{Without restoring the state}
+For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in hard to reproduce bugs. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from \textit{fuzzing} the \textit{Secure services} from the \textit{Linux}. The other side displays the metrics from \textit{fuzzing} the target directly from the \textit{Trustzone}.
 
 \begin{figure}[h!]
     \centering
     \begin{tabular}{c|c}
         \subfloat[Fuzzing speed from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} &
         \subfloat[Fuzzing speed from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} \\
-        \subfloat[Crashes count from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} &
-        \subfloat[Crashes count from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} \\
+        \subfloat[Crashes count from Linux]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_crashes.svg}} &
+        \subfloat[Crashes count from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_crashes.svg}} \\
     \end{tabular}
     \caption{Fuzzing from Linux and Trustzone}
     \label{fig:tz_norevert_fuzzing}
 \end{figure}
 
 \subsubsection{Comparing these results}
+To ease out the comparison between different approaches I collected the data into two plots seen in figure \ref{fig:speed_res}.
 
 \begin{figure}[h!]
     \centering
@@ -85,6 +99,7 @@
 \end{figure}
 
 \subsubsection{Memory resources utilization}
+Naturally, each of measured \textit{fuzzing} approaches consume different amount of various system resources. Of course for large scale \textit{fuzzing} the most important are the \textit{CPU} and \textit{RAM} memory utilization. Since the described \textit{fuzzing} process is entirely sequential, every instance of this setup consumes exactly one processor core. Unfortunately, the memory consumption does differ across the tested architectures. The memory allocation level for each \textit{fuzzing} method can be seed in figure \ref{fig:ramusage}.
 
 \begin{figure}[h!]
     \centering
@@ -97,6 +112,7 @@
 \end{figure}
 
 \subsection{Structured vs direct fuzzing}
+Thanks to the structure of the target we can connect the \textit{AFLplusplus} \textit{fuzzer} directly just like described at the beginning of this chapter. This allows for evaluating how test case interpretation layer described in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. The results are presented in figure \ref{fig:structured_direct_cmp}.
 
 \begin{figure}
     \centering
@@ -105,7 +121,8 @@
         \subfloat[Total crashes comparison]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_box.svg}} \\
     \end{tabular}
     \caption{Comparison of structured and direct fuzzing}
-    \label{fig:strustured_direct_cmp}
+    \label{fig:structured_direct_cmp}
 \end{figure}
 
 \subsection{Analyzing the impact of corpus on fuzzing efficiency}
+The final experiment compares how seeding the \textit{fuzzer's} corpus impacts the fuzzing process. Previously, in section \ref{sec:testint} I described the process of generating test cases by tracing the target while running some test suite. Naturally, test cases created in this way might help the fuzzer by providing examples of how the functions should be called.
