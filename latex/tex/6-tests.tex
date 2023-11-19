@@ -8,9 +8,9 @@ The target of \textit{fuzzing} in this thesis is the \textit{Secure services} mo
     \item \textit{API interface} - it exposes the external interface to the fuzzer, by providing function definitions,
     \item \textit{Serializer} - this submodule converts structured data that is function's arguments and class objects to a simple bytes stream,
     \item \textit{Deserializer} - this segment translates back the data into objects,
-    \item \textit{Handler} - this modules executes the actual functions whose invocation was requested by the \textit{API interface} layer.
+    \item \textit{Handler} - this module executes the actual functions whose invocation was requested by the \textit{API interface} layer.
 \end{enumerate}
-This design is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases the data needs to cross the barrier of address spaces which means that any guarantees about the structure of the data is lost. For this reason the \textit{Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{Deserializer} and bypass the entire design from the previous chapter. Thanks to this we can compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the \textit{fuzzing} process.
+This design is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases the data needs to cross the barrier of address spaces which means that any guarantees about the structure is lost. For this reason the \textit{Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{Deserializer} and bypass the  test case decoder from the previous chapter. Thanks to this we can compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the \textit{fuzzing} process.
 
 \tikzstyle{zone} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
 \tikzstyle{mod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
@@ -47,88 +47,97 @@ This design is fairly common when it comes to creating operating system calls or
         
     \end{tikzpicture}
     
-    \caption{Test environment schematic}
+    \caption{Test environment schematic.}
     \label{fig:testenvirsch}
 \end{figure}
+
+% TODO: read later once again
+\paragraph{Testing method}
+To gather result each experiment consisted of 16 independents runs of the fuzzing setup which were started using the same parameters. The testing is run for four hours, then is terminated, and all data is collected. During the results' analysis I figured out that four hours was enough for this small target. In the next sections I present data collected from captured statistics provided by \textit{AFLplusplus}. This data is reported by the fuzzer every couple of seconds which allows seeing how the process is changing over time and compare different experiments. Although, \textit{AFL} reports many properties I decided to focus on:
+\begin{itemize}
+    \item \textit{exec\_per\_sec} - holds the number of test case execution per second, it is useful to assess speed of fuzzing,
+    \item \textit{total\_crashes} - counts the number of generated test cases that managed to crash the target, it is useful to compare which experiment explored the target better.
+\end{itemize}
+Next couple of sections provide the results from various experiments that compare many design choices that can be made during the assembly of this fuzzing setup.
 
 %\pagebreak
 \subsection{Comparing fuzzing speed}
 
 \subsubsection{Native and custom virtual machine serialization mechanism}
 
-These tests focus on comparing the speed of the serialization mechanism which is required to save the virtual machine state after the system has finished initialization and restore when the test case finished executing. The results are shown in figure \ref{fig:nat_cus_cmp}. On the left the results for native mechanism as described in \ref{sec:qemu_nat} are presented. Similarly, the right part of the figure shows the custom one which was described in \ref{sec:qemu_cus}. The data shows that the tested methods behave very similar. After a while the \textit{fuzzing} speed settles down around $2.5$ executions per second. However, the \textit{fuzzing} setup with the custom serialization mechanism manage to find more test cases that crash the target.
+These tests focus on comparing the speed of the serialization mechanism which is required to save the virtual machine state after the system has finished initialization and restore when the test case finished executing. The results are shown in figure \ref{fig:nat_cus_cmp}. The left side shows the results for native mechanism as described in \ref{sec:qemu_nat}. Similarly, the right part of the figure provides the custom one which was discussed in \ref{sec:qemu_cus}. The data shows that the tested methods behave very similar. After a while the \textit{fuzzing} speed settles down around $2.5$ executions per second. However, the \textit{fuzzing} setup with the custom serialization mechanism manage to find more test cases that crash the target.
 
 \begin{figure}[h!]
     \centering
     \begin{tabular}{c|c}
-        \subfloat[Native serialization speed]{\includesvg[width=.5\textwidth]{tex/plots/normal_speed.svg}} &
-        \subfloat[Custom serialization speed]{\includesvg[width=.5\textwidth]{tex/plots/fast_speed.svg}} \\
-        \subfloat[Native crashes count]{\includesvg[width=.5\textwidth]{tex/plots/normal_crashes.svg}} &
-        \subfloat[Custom crashes count]{\includesvg[width=.5\textwidth]{tex/plots/custom_crashes.svg}} \\
+        \subfloat[Native serialization speed.]{\includesvg[width=.5\textwidth]{tex/plots/normal_speed.svg}} &
+        \subfloat[Custom serialization speed.]{\includesvg[width=.5\textwidth]{tex/plots/fast_speed.svg}} \\
+        \subfloat[Native crashes count.]{\includesvg[width=.5\textwidth]{tex/plots/normal_crashes.svg}} &
+        \subfloat[Custom crashes count.]{\includesvg[width=.5\textwidth]{tex/plots/custom_crashes.svg}} \\
     \end{tabular}
-    \caption{Native and custom serialization mechanism comparison}
+    \caption{Native and custom serialization mechanism comparison.}
     \label{fig:nat_cus_cmp}
 \end{figure}
 
 \subsubsection{Without restoring the state}
-For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in hard to reproduce bugs. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from \textit{fuzzing} the \textit{Secure services} from the \textit{Linux}. The other side displays the metrics from \textit{fuzzing} the target directly from the \textit{Trustzone}. It can be seen that the two described methods are almost identical. It is expected as the only difference between them is the additional delay added when \textit{ARM} processor needs to switch the execution from the normal to secure world. The important things to notice in these results is the significant speed improvement over the methods that restore the virtual machine state. 
+For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in hard to reproduce bugs. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from \textit{fuzzing} the \textit{Secure services} from the \textit{Linux} operating system. Here the \textit{Secure services} are invoked from the normal world. The other side displays the metrics from \textit{fuzzing} the target directly from the \textit{Trustzone}. It can be seen that the two described methods are almost identical. It is expected as the only difference between them is the additional delay added when \textit{ARM} processor needs to switch the execution from the normal to secure world. The important things to notice in these results is the significant speed improvement over the methods that restore the virtual machine state. 
 
 \begin{figure}[h!]
     \centering
     \begin{tabular}{c|c}
-        \subfloat[Fuzzing speed from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} &
-        \subfloat[Fuzzing speed from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_speed.svg}} \\
-        \subfloat[Crashes count from Linux]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} &
-        \subfloat[Crashes count from Trustzone]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_crashes.svg}} \\
+        \subfloat[Fuzzing speed from Linux.]{\includesvg[width=.5\textwidth]{tex/plots/norevert_speed.svg}} &
+        \subfloat[Fuzzing speed from Trustzone.]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_speed.svg}} \\
+        \subfloat[Crashes count from Linux.]{\includesvg[width=.5\textwidth]{tex/plots/norevert_crashes.svg}} &
+        \subfloat[Crashes count from Trustzone.]{\includesvg[width=.5\textwidth]{tex/plots/tznorevert_crashes.svg}} \\
     \end{tabular}
-    \caption{Fuzzing from Linux and Trustzone}
+    \caption{Fuzzing from Linux and Trustzone.}
     \label{fig:tz_norevert_fuzzing}
 \end{figure}
 
-\pagebreak
+%\pagebreak
 \subsubsection{Comparing these results}
-To ease out the comparison between different approaches I collected the data into two plots seen in figure \ref{fig:speed_res}. The left figure shows the speed comparison and the right the total crashes count. The speed results show two distinct groups, the experiments which do restore the virtual machine state and those which don't. It can be seen that the \textit{fuzzing} speed increases by almost two orders of magnitude from $2.5$ to $150$. Naturally, this is heavily dependent on the target architecture, emulator type and many others factors, so it shouldn't be taken as a generic rule. Next, the total crashes figure display a similar situation. Like before the data can be separated in two groups. However, here the difference is not as remarkable as on the speed figure. The reason for this not proportional improvement can be the size of the target. For clarity, by the target size I mean the total size of the \textit{fuzzed} code. As a result, after four hours of running the \textit{fuzzer} it might have uncovered the majority of test cases that lead to a crash leaving only the most sophisticated ones.
+To ease out the comparison between different approaches I collected the data into two plots seen in figure \ref{fig:speed_res}. The left figure shows the speed comparison and the right the total crashes count. The speed results show two distinct groups, the experiments which do restore the virtual machine state and those which don't. It can be seen that the \textit{fuzzing} speed increases by almost two orders of magnitude from $2.5$ to $150$ between those groups. Naturally, this is heavily dependent on the target architecture, emulator type and many others factors, so it shouldn't be taken as a generic rule. Nevertheless, restoring the state add a lot of overhead to the process, just as expected. Next, the total crashes figure display a similar situation. Like before the data can be separated in two groups. However, here the difference is not as remarkable as on the speed figure. The reason for this not proportional improvement can be the size of the target. For clarity, by the target size I mean the total size of the \textit{fuzzed} code. As a result, after four hours of running the \textit{fuzzer} it might have uncovered the majority of test cases that lead to a crash leaving only the most sophisticated ones.
 
-The actual differences inside these groups aren't as visible as between them. When it comes to \textit{fuzzing} speed, these differences are barely visible. On the other hand, when it comes to total crashes count, we can see some variation. Even though the custom serialization mechanism achieved lower average \textit{fuzzing} speed it managed to generate more test cases that crash the target. It might be the result of the higher initial higher speed reached by the custom mechanism. This allowed to explore the target faster which lead the \textit{fuzzer} to running the time-consuming cryptographic operations quicker. In the case of the second pair of experiments, those where the state is not restored, the speed difference is negligible. The figure shows that delay introduced by the code running in normal world is too low to significantly impact the speed of \textit{fuzzing}. When it comes to total crashes count the \textit{fuzzer} ran from normal world generated more potentially valuable test cases then the one running directly from \textit{Trustzone}. Since there is no noticeable speed difference this can be caused by pure luck that in one case the \textit{fuzzer} managed to explore other part of the program. It is possible as I didn't tamper with the random number generator inside \textit{AFL}, so each log from an experiment is unique.
+The actual differences inside these groups aren't as visible as between them. When it comes to \textit{fuzzing} speed, these differences are barely visible. On the other hand, when it comes to total crashes count, we can see some variation. Even though the custom serialization mechanism achieved lower average \textit{fuzzing} speed it managed to generate more test cases that crash the target. It might be the result of the higher initial higher speed reached by the custom mechanism. This allowed to explore the target faster which lead the \textit{fuzzer} to running the time-consuming cryptographic operations quicker. In the case of the second pair of experiments, those where the state is not restored, the speed difference is negligible. The figure shows that delay introduced by the code running in normal world is too low to significantly impact the speed of \textit{fuzzing}. When it comes to total crashes count the \textit{fuzzer} that ran from normal world generated more potentially valuable test cases then the one running directly from \textit{Trustzone}. Since there is no noticeable speed difference this can be caused by pure luck that in one case the \textit{fuzzer} managed to explore other parts of the program. It is possible as I didn't tamper with the random number generator inside \textit{AFL}, so each log from an experiment is unique.
 
 \begin{figure}[h!]
     \centering
     \begin{tabular}{c|c}
-        \subfloat[Fuzzing speed]{\includesvg[width=.5\textwidth]{tex/plots/speed_boxplot.svg}} &
-        \subfloat[Total crashes count]{\includesvg[width=.5\textwidth]{tex/plots/crashes_boxplot.svg}} \\
+        \subfloat[Fuzzing speed.]{\includesvg[width=.5\textwidth]{tex/plots/speed_boxplot.svg}} &
+        \subfloat[Total crashes count.]{\includesvg[width=.5\textwidth]{tex/plots/crashes_boxplot.svg}} \\
     \end{tabular}
-    \caption{Results comparison}
+    \caption{Results comparison.}
     \label{fig:speed_res}
 \end{figure}
 
 \subsubsection{Memory resources utilization}
-Naturally, each of measured \textit{fuzzing} approaches consume different amount of various system resources. Of course for large scale \textit{fuzzing} the most important are the \textit{CPU} and \textit{RAM} memory utilization. Since the described \textit{fuzzing} process is entirely sequential, every instance of this setup consumes exactly one processor core. Unfortunately, the memory consumption does differ across the tested architectures. The memory allocation size for each \textit{fuzzing} method can be seed in figure \ref{fig:ramusage}. In the provided figure one experiment stands out, it is the one described in section \ref{sec:qemu_cus}. This mechanism requires vastly more system memory as it creates copies of many components of the virtual machine directly. The other methods consume a very similar amount of \textit{RAM} memory. For this reason, running this method on a larger scale is likely to be constrained by memory and not the processor core count.
+Naturally, each of measured \textit{fuzzing} approaches consume different amount of various system resources. Of course for large scale \textit{fuzzing} the most important are the \textit{CPU} and \textit{RAM} memory utilization. Since the described \textit{fuzzing} process is entirely sequential, every instance of this setup consumes exactly one processor core. Unfortunately, the memory consumption does differ across the tested architectures. The memory allocation size for each \textit{fuzzing} method can be seen in figure \ref{fig:ramusage}. In the provided figure one experiment stands out, it is the one described in section \ref{sec:qemu_cus}. This mechanism requires vastly more system memory as it creates copies of many components of the virtual machine directly in \textit{RAM}. The other methods consume a very similar amount of \textit{RAM} memory. For this reason, running this method on a larger scale is likely to be constrained by memory and not the processor core count.
 
 \begin{figure}[h!]
     \centering
     \begin{tabular}{cc}
-         \subfloat[RAM usage over time]{\includesvg[width=.5\textwidth]{tex/plots/ram_line.svg}} &
-         \subfloat[RAM comparison]{\includesvg[width=.5\textwidth]{tex/plots/ram_box.svg}}
+         \subfloat[RAM usage over time.]{\includesvg[width=.5\textwidth]{tex/plots/ram_line.svg}} &
+         \subfloat[RAM comparison.]{\includesvg[width=.5\textwidth]{tex/plots/ram_box.svg}}
     \end{tabular}
-    \caption{Comparing RAM memory usage by different fuzzing methods}
+    \caption{Comparing RAM memory usage by different fuzzing methods.}
     \label{fig:ramusage}
 \end{figure}
 
 \subsection{Structured versus direct fuzzing}
-Thanks to the structure of the target we can connect the \textit{AFLplusplus} \textit{fuzzer} directly just like described at the beginning of this chapter. This allows for evaluating how test case interpretation layer described in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. The results are presented in figure \ref{fig:structured_direct_cmp}. It can be seen that the structured approach generated vastly more test cases that crash the target. This is the direct consequence of the initial data integrity checks which interpret the unstructured data at the service entry point. The direct method needs to learn the data format during \textit{fuzzing} whereas the structured way has it already encoded in the target description. For this reason, the structured \textit{fuzzing} appears to be much faster and more efficient to the direct one. This proves that the test case decoder along with the special target description language created in chapter \ref{chap:envir} is valuable addition to the setup.
+Thanks to the architecture of the target we can connect the \textit{AFLplusplus} \textit{fuzzer} directly just like described at the beginning of this chapter. This allows for evaluating how test case interpretation layer presented in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. The results are shown in figure \ref{fig:structured_direct_cmp}. It can be seen that the structured approach generated vastly more test cases that crash the target. This is the direct consequence of the initial data integrity checks which interpret the unstructured data at the service entry point. The direct method needs to learn the data format during \textit{fuzzing} whereas the structured way has it already encoded in the target description. For this reason, the structured \textit{fuzzing} appears to be much faster and more efficient to the direct one. This proves that the test case decoder along with the special target description language created in chapter \ref{chap:envir} is valuable addition to the setup.
 
 \begin{figure}
     \centering
     \begin{tabular}{cc}
-        \subfloat[Total crashes count over time]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_line.svg}} &
-        \subfloat[Total crashes comparison]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_box.svg}} \\
+        \subfloat[Total crashes count over time.]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_line.svg}} &
+        \subfloat[Total crashes comparison.]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_box.svg}} \\
     \end{tabular}
-    \caption{Comparison of structured and direct fuzzing}
+    \caption{Comparison of structured and direct fuzzing.}
     \label{fig:structured_direct_cmp}
 \end{figure}
 
 \subsection{Analyzing the impact of corpus on fuzzing efficiency}
-The final experiment compares how seeding the \textit{fuzzer's} corpus impacts the fuzzing process. Previously, in section \ref{sec:testint} I described the process of generating test cases by tracing the target while running some test suite. Naturally, test cases created in this way might help the fuzzer by providing examples of how the functions should be called. To illustrate this issue I added a special bug to the handler, which requires concrete value of the first argument to trigger. For clarity, the pseudocode is provided in listing \ref{lst:allocbug}. It defines a function named \textit{handler} which takes two arguments. The first names the \textit{command} selects the operation, to simplify the example I show only the relevant one. The second one, called \textit{arg} is a generic purpose argument for the operation. It can be seen, that if the \textit{command} is equal to \textit{0xDEADBEEF} then the array named \textit{data} is resized using the value in \textit{arg}. The issue here is the lack of sanitization of the second argument which can lead to out of memory error. This causes the application to crash as memory allocation error in \textit{Rust} is a hard fault which cannot be recovered from. For this reason, the fuzzer need to not only choose a ridiculous value for the \textit{arg} parameter but also guess the correct operation code in the \textit{command} argument.  
+The final experiment compares how seeding the \textit{fuzzer's} corpus impacts the fuzzing process. Previously, in section \ref{sec:testint} I described the process of generating test cases by tracing the target while running some test suite. Naturally, test cases created in this way might help the fuzzer by providing examples of how the functions should be called. To illustrate this issue I added a special bug to the handler, which requires concrete value of the first argument to trigger. For clarity, the pseudocode is provided in listing \ref{lst:allocbug}. It defines a function named \textit{handler} which takes two arguments. The first named the \textit{command} selects the operation, to simplify the example I show only the relevant one. The second one, called \textit{arg} is a generic purpose argument for the operation. It can be seen, that if the \textit{command} is equal to \textit{0xDEADBEEF} then the array named \textit{data} is resized using the value in \textit{arg}. The issue here is the lack of sanitization of the second argument which can lead to out of memory error. This causes the application to crash as memory allocation error in \textit{Rust} is a hard fault which cannot be recovered from. For this reason, the fuzzer need to not only choose a ridiculous value for the \textit{arg} parameter but also guess the correct operation code in the \textit{command} argument.  
 
 \begin{minipage}{\linewidth}
     \begin{lstlisting}[language=rust,caption={The allocation bug pseudocode.},label={lst:allocbug}]
@@ -143,7 +152,7 @@ fn handler(command: u32, arg: u32) {
     \end{lstlisting}
 \end{minipage}
 
-In this experiment, the \textit{fuzzer}'s corpus with an encoded unit tests that called the \textit{handler} function. The test's code can be seen in listing \ref{lst:uthandler}. It passes the special \textit{0xDEADBEEF} value as \textit{command} and \textit{1024} as \textit{arg} which causes the \textit{data} vector to be resized to $1024$ bytes. This helps the \textit{fuzzer} by providing the correct value for the first argument so that the fuzzer is far more likely to trigger the bug as now it just needs to mutate the second argument. Naturally, a genetic \textit{fuzzer} should still be able to create the crashing test case. Unfortunately, the probability of choosing the proper \textit{command} value at random is very low. 
+In this experiment, the \textit{fuzzer}'s corpus was seeded with an encoded unit tests that calls the \textit{handler} function. This test's code can be seen in listing \ref{lst:uthandler}. It passes the special \textit{0xDEADBEEF} value as \textit{command} and \textit{1024} as \textit{arg} which causes the \textit{data} vector to be resized to $1024$ bytes. This helps the \textit{fuzzer} by providing the correct value for the first argument so that the fuzzer is far more likely to trigger the bug as now it just needs to mutate the second argument. Naturally, a genetic \textit{fuzzer} should still be able to create the crashing test case. Unfortunately, the probability of choosing the proper \textit{command} value at random is very low. 
 
 \begin{minipage}{\linewidth}
     \begin{lstlisting}[language=rust,caption={Unit test for the \textit{handler} function.},label={lst:uthandler}]
@@ -151,7 +160,7 @@ handler(0xDEADBEEF, 1024);
     \end{lstlisting}
 \end{minipage}
 
-The results are presented in table \ref{tab:seededres}. Each row represents a run of the \textit{fuzzer} with different corpus. Of course, all other parameters stay the same. The numbers are calculated by averaging metrics from 16 independent \textit{fuzzer} instances. It shows that when the \textit{fuzzer} was seeded with the unit tests it was able to find the described bug around the \textit{5308} iteration. On the other hand, the \textit{fuzzer} which was initialized with random data did not manage to find this bug in \textit{2004222}. The discrepancy in the total number of test cases executed is brought about the delay introduced by the cryptography function inside \textit{OPTEE OS} kernel. When the \textit{fuzzer} was seeded with unit tests it was calling the kernel's functions more often as it started with correct arguments that allowed the \textit{fuzzer} to pass the initial integrity checks. Nonetheless, this experiment shows that seeding the corpus with valuable data has great impact on fuzzing efficiency and not only can speed the process up but also locate bugs that are hard to trigger.
+The results are presented in table \ref{tab:seededres}. Each row represents a separate run of the \textit{fuzzer} with different corpus. Of course, all other parameters stay the same. The numbers are calculated by averaging metrics from 16 independent \textit{fuzzer} instances. It shows that when the \textit{fuzzer} was seeded with the unit tests it was able to find the described bug around the \textit{5308} iteration. On the other hand, the \textit{fuzzer} which was initialized with random data did not manage to find this bug in \textit{2004222}. Naturally, each of these setups ran for the same time interval equal to four hours. Moreover, these experiments differ significantly on the total number of test cases that were executed. This discrepancy is most likely caused by the delay introduced by the cryptography function inside \textit{OPTEE OS} kernel. When the \textit{fuzzer} was seeded with unit tests it was calling the kernel's functions more often as it started with correct arguments that allowed the \textit{fuzzer} to pass the initial integrity checks. Nonetheless, this experiment shows that seeding the corpus with valuable data has great impact on fuzzing efficiency and not only can speed the process up but also locate bugs that are hard to trigger.
 
 \begin{table}
     \centering
