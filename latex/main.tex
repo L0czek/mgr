@@ -21,6 +21,7 @@
 \usepackage{svg}
 \usepackage{tabularx}
 \usepackage{subfig}
+\captionsetup[subfigure]{labelformat=empty}
 
 \newcommand{\newthreadShift}[4][gray!30]{
   \newinst[#4]{#2}{#3}
@@ -56,28 +57,26 @@
 %------------------
 % Strona tytułowa
 %------------------
-\instytut{XXXXXX}
-\kierunek{XXXXXX}
-\specjalnosc{XXXXXX}
+\instytut{Computer Science}
+\kierunek{Computer Science}
+\specjalnosc{Artificial Intelligence}
 \title{
-    Niepotrzebnie długi i skomplikowany tytuł pracy \\
-    trudny do przeczytania, zrozumienia i wymówienia
+    Fuzzing Rust based trusted services using QEMU
 }
 % Title in English for English theses
 % In English theses, you may remove this command
-\engtitle{
-    Unnecessarily long and complicated thesis' title \\
-    difficult to read, understand and pronounce
-}
+%\engtitle{
+%    Unnecessarily long and complicated thesis' title \\
+%    difficult to read, understand and pronounce
+%}
 % Title in Polish for English theses
 % Use it only in English theses
 \poltitle{
-    Niepotrzebnie długi i skomplikowany tytuł pracy \\
-    trudny do przeczytania, zrozumienia i wymówienia
+    Automatyczne testowanie zaufanych usług stworzonych w języku Rust za pomocą QEMU
 }
-\author{\{Imię i Nazwisko\}}
-\album{XXXXXX}
-\promotor{XXXXXX}
+\author{Michał Szaknis}
+\album{300274}
+\promotor{dr inż. Grzegorz Blinowski}
 \date{\the\year}
 \maketitle
 
@@ -161,6 +160,8 @@ Systemy wbudowane odgrywają ważną rolę w dzisiejszym świecie, gdzie małe, 
 % Obrazki i tabele w załącznikach nie trafiają do spisów
 \captionsetup[figure]{list=no}
 \captionsetup[table]{list=no}
+
+\include{tex/8-app.tex}
 
 %% Załącznik 1
 %\clearpage
