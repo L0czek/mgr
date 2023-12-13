@@ -6,59 +6,146 @@
 The target of fuzzing in this thesis is the \textit{Secure services} module which runs under \textit{OPTEE OS} operating system. Architecturally, this part of the setup can be divided into four parts, as seen in figure \ref{fig:testenvirsch}. These parts are responsible for the following tasks:
 \begin{enumerate}
     \item \textit{API interface} - it exposes the external interface to the fuzzer, by providing function definitions,
-    \item \textit{Serializer} - this submodule converts structured data that is function's arguments and class objects to a simple bytes stream,
-    \item \textit{Deserializer} - this segment translates back the data into objects,
+    \item \textit{API Serializer} - this submodule converts structured data that is function's arguments and class objects to a simple bytes stream,
+    \item \textit{API Deserializer} - this segment translates back the data into objects,
     \item \textit{Handler} - this module executes the actual functions whose invocation was requested by the \textit{API interface} layer.
 \end{enumerate}
-This design is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases the data needs to cross the barrier of address spaces which means that any guarantees about the structure is lost. For this reason the \textit{Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{Deserializer} and bypass the  test case decoder from the previous chapter. Thanks to this we can compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the fuzzing process.
+This type of design is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases, the data needs to cross the barrier of address spaces which means that any guarantees about the structure are lost. For this reason, the \textit{API Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{API Deserializer} and bypassing the test case decoder from the previous chapter. For clarity, the \textit{AFL++} fuzzer can be connected to the pipe connecting the \textit{API Serializer} to \textit{API Deserializer}. Naturally, since this pipe exists only inside \textit{OPTEE OS} the data is first transferred to \textit{QEMU} by using special \textit{hypercalls}. Thanks to this we can compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the fuzzing process.
 
-\tikzstyle{zone} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
-\tikzstyle{mod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+\tikzstyle{opensource} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{custom} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+\tikzstyle{opensourcemod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!60]
+\tikzstyle{custommod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!60, text width=2cm]
+\tikzstyle{modifiedmod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=yellow!30]
+\tikzstyle{host} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=brown!30]
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
 \tikzstyle{darrow} = [thick,<->,>=stealth]
 
 \pgfdeclarelayer{background0}
 \pgfdeclarelayer{background1}
-\pgfsetlayers{background0, background1,main}
+\pgfdeclarelayer{background2}
+\pgfsetlayers{background0, background1, background2, main}
 
 \begin{figure}[h!]
     \centering
 
     \begin{tikzpicture}
-        \node (dsl) [mod] { API interface };
-        \node (serializer) [mod, right of=dsl, xshift=3.25cm] { Serializer };
-        \node (deserializer) [mod, right of=serializer, xshift=2.75cm] { Deserializer };
-        \node (handler) [mod, right of=deserializer, xshift=3.25cm] { Handler };
-
-        \begin{pgfonlayer}{background0}
-            \node (target) [zone, fit={(dsl)}, label={ Target API }, text height=1.5cm, text width=3.5cm] {};
-        \end{pgfonlayer}        
-
-        \begin{pgfonlayer}{background0}
-            \node (pipe) [zone, fit={(serializer) (deserializer)}, label={ Data transfer }, text width=7.5cm, text height=1.5cm] {};
-        \end{pgfonlayer}
-
-        \begin{pgfonlayer}{background0}
-            \node (fuzz) [zone, fit={(handler)}, text width=3.5cm, text height=1.5cm, label={ Fuzzer target }] {};
-        \end{pgfonlayer}
-
-        \draw [darrow] (dsl) -- (serializer);
-        \draw [darrow] (serializer) -- (deserializer);
-        \draw [darrow] (deserializer) -- (handler);
+        \node (opteekernel) [opensourcemod] { OPTEE secure kernel };
         
-    \end{tikzpicture}
+        \node (handler) [custommod, below of=opteekernel, yshift=-1cm] { Handler };
+        \node (deserializer) [custommod, below of=handler, yshift=-0.5cm] { API Deserializer };
+        \node (serializer) [custommod, below of=deserializer, yshift=-0.5cm] {API Serializer };
+        \node (interface) [custommod, below of=serializer, yshift=-0.5cm] { API interface };
+
+        \begin{pgfonlayer}{background2}
+            \node (secsrv) [custom, fit={(handler) (deserializer) (serializer) (interface)}, label={Secure services}] {};
+        \end{pgfonlayer}
+
+        \node (decoder) [custommod, below of=interface, yshift=-1cm] { Test case decoder };
+
+        \begin{pgfonlayer}{background1}
+            \node (optee) [opensource, fit={(opteekernel) (secsrv) (decoder)}, label={OPTEE OS}] {};
+        \end{pgfonlayer}
+
+        \node (fuzzint) [custommod, below of=decoder, yshift=-1cm, text width=8cm, xshift=2.25cm] { Fuzzer interface };
+
+        \node (linuxkernel) [opensourcemod, right of=opteekernel, xshift=4cm] { Linux kernel };
+        \node (init) [custommod, below of=linuxkernel, yshift=-1cm] { Initializer };
+
+        \begin{pgfonlayer}{background1}
+            \node (buildroot) [opensource, fit={(linuxkernel) (init)}, label={Buildroot}] {};
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background0}
+            \node (qemu) [opensource, fit={(optee) (buildroot) (fuzzint)}, text height=13cm, label={QEMU}] {};
+        \end{pgfonlayer}
     
+        \draw [darrow] (handler) -- (deserializer) node[midway, right] {API};
+        \draw [darrow] (deserializer) -- (serializer) node[midway, right] {pipe};
+        \draw [darrow] (serializer) -- (interface) node[midway, right] {API};
+        \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
+        \draw [darrow] (decoder) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
+        \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Loads};
+        \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Loads};
+
+    \end{tikzpicture}
+
     \caption{Test environment schematic.}
     \label{fig:testenvirsch}
 \end{figure}
 
+%\tikzstyle{zone} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+%\tikzstyle{mod} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+%\tikzstyle{darrow} = [thick,<->,>=stealth]
+%\begin{figure}[h!]
+%    \centering
+%
+%    \begin{tikzpicture}
+%        \node (dsl) [mod] { API interface };
+%        \node (serializer) [mod, right of=dsl, xshift=3.25cm] { Serializer };
+%        \node (deserializer) [mod, right of=serializer, xshift=2.75cm] { Deserializer };
+%        \node (handler) [mod, right of=deserializer, xshift=3.25cm] { Handler };
+%
+%        \begin{pgfonlayer}{background0}
+%            \node (target) [zone, fit={(dsl)}, label={ Target API }, text height=1.5cm, text width=3.5cm] {};
+%        \end{pgfonlayer}        
+%
+%        \begin{pgfonlayer}{background0}
+%            \node (pipe) [zone, fit={(serializer) (deserializer)}, label={ Data transfer }, text width=7.5cm, text height=1.5cm] {};
+%        \end{pgfonlayer}
+%
+%        \begin{pgfonlayer}{background0}
+%            \node (fuzz) [zone, fit={(handler)}, text width=3.5cm, text height=1.5cm, label={ Fuzzer target }] {};
+%        \end{pgfonlayer}
+%
+%        \draw [darrow] (dsl) -- (serializer);
+%        \draw [darrow] (serializer) -- (deserializer);
+%        \draw [darrow] (deserializer) -- (handler);
+%        
+%    \end{tikzpicture}
+%    
+%    \caption{Test environment schematic.}
+%    \label{fig:testenvirsch}
+%\end{figure}
+
 % TODO: read later once again
 \paragraph{Testing method}
-To gather result each experiment consisted of 16 independents runs of the fuzzing setup which were started using the same parameters. The testing is run for four hours, then is terminated, and all data is collected. During the results' analysis I figured out that four hours was enough for this small target. In the next sections I present data collected from captured statistics provided by \textit{AFLplusplus}. This data is reported by the fuzzer every couple of seconds which allows seeing how the process is changing over time and compare different experiments. Although, \textit{AFL} reports many properties I decided to focus on:
+To gather results we conducted 16 independent runs of the fuzzing setup for each experiment. The number of fuzzing processes was limited by the resources available on my computer. Therefore, I ran 16 of them as this was the maximum possible number of parallel fuzzing processes. The testing is run for four hours, then is terminated, and all data is collected. During the results' analysis, I figured out that four hours was enough for this small target as after that time the results weren't changing significantly. 
+To compare experiments I use two metrics reported by the \textit{AFL++} fuzzer:
 \begin{itemize}
-    \item \textit{exec\_per\_sec} - holds the number of test case execution per second, it is useful to assess speed of fuzzing,
+    \item \textit{exec\_per\_sec} - holds the number of test case executions per second, it is useful to assess the speed of fuzzing,
     \item \textit{total\_crashes} - counts the number of generated test cases that managed to crash the target, it is useful to compare which experiment explored the target better.
 \end{itemize}
-Next couple of sections provide the results from various experiments that compare many design choices that can be made during the assembly of this fuzzing setup.
+These statistics are logged every couple of seconds and allow for comparing the speed and efficiency of fuzzing.
+In the following section, I present results from several experiments:
+\begin{enumerate}
+    \item evaluation of the performance of virtual machine save and restore mechanism by comparing fuzzing speed and the total crashes count:
+    \begin{enumeration}
+        \item the native serialization mechanism which utilizes the built-in snapshot mechanism in QEMU discussed in section \ref{sec:qemu_nat},
+        \item the custom serialization mechanism that was created to try to speed up the process, this was described in section \ref{sec:qemu_cus}.
+    \end{enumerate}
+
+    \item evaluation of how the save and restore mechanism impacts fuzzing speed and the total crashes count:
+    \begin{enumerate}
+        \item fuzzing from \textit{Buildroot} by calling the \textit{Test Case decoder} from a process running under the \textit{Linux} kernel in the normal world,
+        \item fuzzing from \textit{OPTEE OS} by calling the \textit{Test Case decoder} from a process running under the \textit{OPTEE OS} kernel in the secure world.
+    \end{enumerate}
+
+    \item measuring how much system memory each fuzzing mode requires,
+
+    \item evaluation of the \textit{Test Case Decoder} module by comparing the total crashes count:
+    \begin{enumerate}
+        \item connecting \textit{AFL++} directly to the \textit{API Deserializer} bypassing the \textit{Test Case Decoder} discussed in chapter \ref{chap:envir},
+        \item using the \textit{Test Case Decoder}.
+    \end{enumerate}
+
+    \item evaluating how seeding the fuzzer corpus impacts the ability to find bugs by checking if a particular bug was found:
+    \begin{enumerate}
+        \item seeding the corpus with random sequences of bytes,
+        \item seeding the corpus by tracing unit test suite using the custom method discussed in section \ref{sec:testint}.
+    \end{enumerate}
+\end{enumerate}
 
 %\pagebreak
 \subsection{Comparing fuzzing speed}
