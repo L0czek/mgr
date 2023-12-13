@@ -30,6 +30,7 @@ This type of design is fairly common when it comes to creating operating system 
 \begin{figure}[h!]
     \centering
 
+    \scalebox{.8}{%
     \begin{tikzpicture}
         \node (opteekernel) [opensourcemod] { OPTEE secure kernel };
         
@@ -70,6 +71,7 @@ This type of design is fairly common when it comes to creating operating system 
         \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Loads};
 
     \end{tikzpicture}
+    }
 
     \caption{Test environment schematic.}
     \label{fig:testenvirsch}
@@ -151,8 +153,7 @@ In the following section, I present results from several experiments:
 \subsection{Comparing fuzzing speed}
 
 \subsubsection{Native and custom virtual machine serialization mechanism}
-
-These tests focus on comparing the speed of the serialization mechanism which is required to save the virtual machine state after the system has finished initialization and restore when the test case finished executing. The results are shown in figure \ref{fig:nat_cus_cmp}. The left side shows the results for native mechanism as described in \ref{sec:qemu_nat}. Similarly, the right part of the figure provides the custom one which was discussed in \ref{sec:qemu_cus}. The data shows that the tested methods behave very similar. After a while the fuzzing speed settles down around $2.5$ executions per second. However, the fuzzing setup with the custom serialization mechanism manage to find more test cases that crash the target.
+These tests focus on comparing the speed of the serialization mechanism which is required to save the virtual machine state after the system has finished initialization and restore when the test case finished executing. The results are shown in figure \ref{fig:nat_cus_cmp}. The left side shows the results for the native serialization mechanism as described in \ref{sec:qemu_nat}. Similarly, the right part of the figure provides the custom one which was discussed in \ref{sec:qemu_cus}. As a reminder, the native mechanism is the one relaying on the built-in snapshot mechanism whereas the custom one performs in memory copy of the virtual machine state. The data shows that the tested methods behave similarly. After a while, the fuzzing speed settles down to around $2.5$ executions per second. However, the fuzzing setup with the custom serialization mechanism manages to find more test cases that crash the target.
 
 \begin{figure}[h!]
     \centering
@@ -167,7 +168,110 @@ These tests focus on comparing the speed of the serialization mechanism which is
 \end{figure}
 
 \subsubsection{Without restoring the state}
-For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in hard to reproduce bugs. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from fuzzing the \textit{Secure services} from the \textit{Linux} operating system. Here the \textit{Secure services} are invoked from the normal world. The other side displays the metrics from fuzzing the target directly from the \textit{Trustzone}. It can be seen that the two described methods are almost identical. It is expected as the only difference between them is the additional delay added when \textit{ARM} processor needs to switch the execution from the normal to secure world. The important things to notice in these results is the significant speed improvement over the methods that restore the virtual machine state. 
+For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in lesser reproducibility of bugs. 
+The changes made to this setup to allow for this experiment can be seen in figure \ref{fig:fuzzwithoutrevert}. The difference between those diagrams and the one provided at the beginning of this chapter is the addition of the \textit{Fuzzer loop} module. This element shows where the loop controlling the fuzzing process resides. It is named a loop as it repeatedly fetches test cases from the hypervisor, runs them, and reports back results. In the case of fuzzing from the normal world, the fuzzing loop operates in an application under the \textit{Linux} kernel. It communicates with \textit{QEMU} by \textit{hypercalls} to fetch test cases and report the results. Naturally, after the test case has been acquired it needs to be transferred to the secure world to the \textit{Test Case Decoder}. Thankfully, this can be done using the interface provided by secure world. For clarity, each application can have an interface to the normal world so that it can be used by user applications. On the other hand, fuzzing from the secure world, everything runs under the \textit{OPTEE OS}. The fuzzing loop communicates directly with \textit{QEMU} using \textit{hypercalls} just like before. Naturally, this time the loop can just call the \textit{Test Case Decoder} directly using simple function calls. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from fuzzing the \textit{Secure services} from the normal world. The other side displays the metrics from fuzzing the target directly from the secure world. It can be seen that the two described methods behave similarly and yield close results on average. It is expected that the only difference between them is the additional delay added when \textit{ARM} processor needs to switch the execution from the normal to secure world. The important thing to notice in these results is the significant speed improvement over the methods that restore the virtual machine state. 
+
+\begin{figure}[h!]
+    \centering
+    \begin{tabular}{c|c}
+        \subfloat[Fuzzing from secure world.]{
+                \scalebox{.8}{%
+            \begin{tikzpicture}
+                    \node (opteekernel) [opensourcemod] { OPTEE secure kernel };
+                    
+                    \node (handler) [custommod, below of=opteekernel, yshift=-1cm] { Handler };
+                    \node (deserializer) [custommod, below of=handler, yshift=-0.5cm] { API Deserializer };
+                    \node (serializer) [custommod, below of=deserializer, yshift=-0.5cm] {API Serializer };
+                    \node (interface) [custommod, below of=serializer, yshift=-0.5cm] { API interface };
+
+                    \begin{pgfonlayer}{background2}
+                        \node (secsrv) [custom, fit={(handler) (deserializer) (serializer) (interface)}, label={Secure services}] {};
+                    \end{pgfonlayer}
+
+                    \node (decoder) [custommod, below of=interface, yshift=-1cm] { Test case decoder };
+                    \node (loop) [custommod, below of=decoder, yshift=-0.5cm] { Fuzzing loop };
+
+                    \begin{pgfonlayer}{background1}
+                        \node (optee) [opensource, fit={(opteekernel) (secsrv) (decoder) (loop)}, label={OPTEE OS}] {};
+                    \end{pgfonlayer}
+
+                    \node (fuzzint) [custommod, below of=loop, yshift=-1cm, text width=8cm, xshift=2.25cm] { Fuzzer interface };
+
+                    \node (linuxkernel) [opensourcemod, right of=opteekernel, xshift=4cm] { Linux kernel };
+                    \node (init) [custommod, below of=linuxkernel, yshift=-1cm] { Initializer };
+
+                    \begin{pgfonlayer}{background1}
+                        \node (buildroot) [opensource, fit={(linuxkernel) (init)}, label={Buildroot}] {};
+                    \end{pgfonlayer}
+
+                    \begin{pgfonlayer}{background0}
+                        \node (qemu) [opensource, fit={(optee) (buildroot) (fuzzint)}, text height=14cm, label={QEMU}] {};
+                    \end{pgfonlayer}
+                
+                    \draw [darrow] (handler) -- (deserializer) node[midway, right] {API};
+                    \draw [darrow] (deserializer) -- (serializer) node[midway, right] {pipe};
+                    \draw [darrow] (serializer) -- (interface) node[midway, right] {API};
+                    \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
+                    \draw [darrow] (decoder) -- (loop) node[midway, right] {API};
+                    \draw [darrow] (loop) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
+                    \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Loads};
+                    \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Loads};
+                    \draw [arrow, dashed] (init) |- (loop) node[midway, above left] {Loads};
+            \end{tikzpicture}
+                }
+        } &
+        \subfloat[Fuzzing from normal world.]{
+                \scalebox{0.8}{%
+            \begin{tikzpicture}
+                    \node (opteekernel) [opensourcemod] { OPTEE secure kernel };
+                    
+                    \node (handler) [custommod, below of=opteekernel, yshift=-1cm] { Handler };
+                    \node (deserializer) [custommod, below of=handler, yshift=-0.5cm] { API Deserializer };
+                    \node (serializer) [custommod, below of=deserializer, yshift=-0.5cm] {API Serializer };
+                    \node (interface) [custommod, below of=serializer, yshift=-0.5cm] { API interface };
+
+                    \begin{pgfonlayer}{background2}
+                        \node (secsrv) [custom, fit={(handler) (deserializer) (serializer) (interface)}, label={Secure services}] {};
+                    \end{pgfonlayer}
+
+                    \node (decoder) [custommod, below of=interface, yshift=-1cm] { Test case decoder };
+
+                    \begin{pgfonlayer}{background1}
+                        \node (optee) [opensource, fit={(opteekernel) (secsrv) (decoder)}, label={OPTEE OS}] {};
+                    \end{pgfonlayer}
+
+                    \node (fuzzint) [custommod, below of=decoder, yshift=-1cm, text width=8cm, xshift=2.25cm] { Fuzzer interface };
+
+                    \node (linuxkernel) [opensourcemod, right of=opteekernel, xshift=4cm] { Linux kernel };
+                    \node (init) [custommod, below of=linuxkernel, yshift=-1cm] { Initializer };
+                    \node (loop) [custommod, below of=init, yshift=-1cm] { Fuzzing loop };
+
+                    \begin{pgfonlayer}{background1}
+                        \node (buildroot) [opensource, fit={(linuxkernel) (init) (loop)}, label={Buildroot}] {};
+                    \end{pgfonlayer}
+
+                    \begin{pgfonlayer}{background0}
+                        \node (qemu) [opensource, fit={(optee) (buildroot) (fuzzint)}, text height=13cm, label={QEMU}] {};
+                    \end{pgfonlayer}
+                
+                    \draw [darrow] (handler) -- (deserializer) node[midway, right] {API};
+                    \draw [darrow] (deserializer) -- (serializer) node[midway, right] {pipe};
+                    \draw [darrow] (serializer) -- (interface) node[midway, right] {API};
+                    \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
+                    \draw [arrow, dashed] (init) -- (loop) node[midway, right] {Loads};
+                    \draw [arrow, dashed] (init) -| ++(-2.25cm, 0cm) node[midway, above] {Loads} |- (secsrv);
+                    \draw [arrow, dashed] (init) -| ++(-2.25cm, 0cm) |- ++(-1.25cm, -6.25cm);
+                    \draw [darrow] (loop)+(1cm, -0.5cm) -- ++(1cm, -6cm) node[midway, above, rotate=90] {hypercalls};
+                    \draw [darrow] (loop)+(-1cm, -0.5cm) |- ++(-3.5cm, -4.75cm) node[midway, below] {Secure calls};
+            \end{tikzpicture}
+                }
+        } \\
+    \end{tabular}
+
+    \caption{Fuzzing without restoring virtual machine state.}
+    \label{fig:fuzzwithoutrevert}
+\end{figure}
+
 
 \begin{figure}[h!]
     \centering
@@ -183,9 +287,20 @@ For completion, I conducted experiments on how the need to save and restore stat
 
 %\pagebreak
 \subsubsection{Comparing these results}
-To ease out the comparison between different approaches I collected the data into two plots seen in figure \ref{fig:speed_res}. The left figure shows the speed comparison and the right the total crashes count. The speed results show two distinct groups, the experiments which do restore the virtual machine state and those which don't. It can be seen that the fuzzing speed increases by almost two orders of magnitude from $2.5$ to $150$ between those groups. Naturally, this is heavily dependent on the target architecture, emulator type and many others factors, so it shouldn't be taken as a generic rule. Nevertheless, restoring the state add a lot of overhead to the process, just as expected. Next, the total crashes figure display a similar situation. Like before the data can be separated in two groups. However, here the difference is not as remarkable as on the speed figure. The reason for this not proportional improvement can be the size of the target. For clarity, by the target size I mean the total size of the fuzzed code. As a result, after four hours of running the fuzzer it might have uncovered the majority of test cases that lead to a crash leaving only the most sophisticated ones.
+To ease out the comparison between different approaches I collected the data into two plots seen in figure \ref{fig:speed_res}. The left figure shows the speed comparison and the right the total crashes count. The speed results show two distinct groups:
+\begin{itemize}
+    \item the experiments that do save and restore the state of the virtual machine:
+    \begin{itemize}
+        \item fuzzing with native serialization mechanism,
+        \item fuzzing with custom serialization mechanism,
+    \end{itemize}
+    \item the experiments that do not resotre the state:
+    \begin{itemize}
+        \item 
 
-The actual differences inside these groups aren't as visible as between them. When it comes to fuzzing speed, these differences are barely visible. On the other hand, when it comes to total crashes count, we can see some variation. Even though the custom serialization mechanism achieved lower average fuzzing speed it managed to generate more test cases that crash the target. It might be the result of the higher initial higher speed reached by the custom mechanism. This allowed to explore the target faster which lead the fuzzer to running the time-consuming cryptographic operations quicker. In the case of the second pair of experiments, those where the state is not restored, the speed difference is negligible. The figure shows that delay introduced by the code running in normal world is too low to significantly impact the speed of fuzzing. When it comes to total crashes count the fuzzer that ran from normal world generated more potentially valuable test cases then the one running directly from \textit{Trustzone}. Since there is no noticeable speed difference this can be caused by pure luck that in one case the fuzzer managed to explore other parts of the program. It is possible as I didn't tamper with the random number generator inside \textit{AFL}, so each log from an experiment is unique.
+, the experiments that do restore the virtual machine state and those that don't. It can be seen that the fuzzing speed increases by almost two orders of magnitude from $2.5$ to $150$ between those groups. Naturally, this is heavily dependent on the target architecture, emulator type, and many other factors, so it shouldn't be taken as a generic rule. Nevertheless, restoring the state adds a lot of overhead to the process, just as expected. Next, the total crashes figure displays a similar situation. Like before the data can be separated into two groups. However, here the difference is not as remarkable as in the speed figure. The reason for this not proportional improvement can be the size of the target. For clarity, by the target size I mean the total size of the fuzzed code. As a result, after four hours of running the fuzzer, it might have uncovered the majority of test cases that lead to a crash leaving only the most sophisticated ones.
+
+The actual differences inside these groups aren't as visible as between them. When it comes to fuzzing speed, these differences are barely visible. On the other hand, when it comes to total crashes count, we can see some variation. Even though the custom serialization mechanism achieved a lower average fuzzing speed it managed to generate more test cases that crash the target. It might be the result of the higher initial speed reached by the custom mechanism. This allowed it to explore the target faster which led the fuzzer to run the time-consuming cryptographic operations quicker. In the case of the second pair of experiments, those where the state is not restored, the speed difference is negligible. The figure shows that the delay introduced by the code running in the normal world is too low to significantly impact the speed of fuzzing. When it comes to total crashes count the fuzzer that ran from the normal world generated more potentially valuable test cases than the one running directly from \textit{Trustzone}. Since there is no noticeable speed difference this can be caused by pure luck that in one case the fuzzer managed to explore other parts of the program. It is possible as I didn't tamper with the random number generator inside \textit{AFL}, so each log from an experiment is unique.
 
 \begin{figure}[h!]
     \centering
@@ -211,11 +326,58 @@ Naturally, each of measured fuzzing approaches consume different amount of vario
 \end{figure}
 
 \subsection{Structured versus direct fuzzing}
+
+\begin{figure}
+    \centering
+    
+    \scalebox{.8}{%
+    \begin{tikzpicture}
+        \node (opteekernel) [opensourcemod] { OPTEE secure kernel };
+        
+        \node (handler) [custommod, below of=opteekernel, yshift=-1cm] { Handler };
+        \node (deserializer) [custommod, below of=handler, yshift=-0.5cm] { API Deserializer };
+
+        \begin{pgfonlayer}{background2}
+            \node (secsrv) [custom, fit={(handler) (deserializer)}, label={Secure services}] {};
+        \end{pgfonlayer}
+
+        \node (aflpipe) [custommod, below of=deserializer, yshift=-1cm] { AFL++ connector };
+
+        \begin{pgfonlayer}{background1}
+            \node (optee) [opensource, fit={(opteekernel) (secsrv) (aflpipe)}, label={OPTEE OS}] {};
+        \end{pgfonlayer}
+
+        \node (fuzzint) [custommod, below of=aflpipe, yshift=-1cm, text width=8cm, xshift=2.25cm] { Fuzzer interface };
+
+        \node (linuxkernel) [opensourcemod, right of=opteekernel, xshift=4cm] { Linux kernel };
+        \node (init) [custommod, below of=linuxkernel, yshift=-0.5cm] { Initializer };
+
+        \begin{pgfonlayer}{background1}
+            \node (buildroot) [opensource, fit={(linuxkernel) (init)}, label={Buildroot}] {};
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background0}
+            \node (qemu) [opensource, fit={(optee) (buildroot) (fuzzint)}, text height=10cm, label={QEMU}] {};
+        \end{pgfonlayer}
+    
+        \draw [darrow] (handler) -- (deserializer) node[midway, right] {API};
+        \draw [darrow] (deserializer) -- (aflpipe) node[midway, right] {pipe};
+        \draw [darrow] (aflpipe) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
+        \draw [arrow, dashed] (init) |- (aflpipe) node[midway, right] {Loads};
+        \draw [arrow, dashed] (init) |- (secsrv) node[midway, right] {Loads};
+    \end{tikzpicture}
+    }
+
+
+    \caption{Connecting the \textit{AFL++} fuzzer directly to the target.}
+    \label{fig:directfuzzingsetup}
+\end{figure}
+
 Thanks to the architecture of the target we can connect the \textit{AFLplusplus} fuzzer directly just like described at the beginning of this chapter. This allows for evaluating how test case interpretation layer presented in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. The results are shown in figure \ref{fig:structured_direct_cmp}. It can be seen that the structured approach generated vastly more test cases that crash the target. This is the direct consequence of the initial data integrity checks which interpret the unstructured data at the service entry point. The direct method needs to learn the data format during fuzzing whereas the structured way has it already encoded in the target description. For this reason, the structured fuzzing appears to be much faster and more efficient to the direct one. This proves that the test case decoder along with the special target description language created in chapter \ref{chap:envir} is valuable addition to the setup.
 
 \begin{figure}
     \centering
-    \begin{tabular}{cc}
+    \begin{tabular}{c|c}
         \subfloat[Total crashes count over time.]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_line.svg}} &
         \subfloat[Total crashes comparison.]{\includesvg[width=.5\textwidth]{tex/plots/dsl_direct_box.svg}} \\
     \end{tabular}
