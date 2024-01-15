@@ -1,12 +1,12 @@
 \cleardoublepage
 
-\section{Fuzzing, Operating Systems, and Virtual Machines technology}
+\section{Fuzzing, Operating Systems, and Virtual Machines technology} \label{chap:theory}
 
-This thesis will focus on setting up fuzzing on small, embedded systems. To simulate this environment, the \textit{OPTEE OS} operating system will be used as the platform for the fuzzer. Additionally, I wanted to focus on fuzzing software written in \textit{Rust}, as it is becoming more and more popular in system design. Consequently, this chapter will describe all the relevant topics, starting from the actual fuzzing itself. Then, followed by the analysis of the \textit{QEMU} system emulator, which will be utilized to run the \textit{OPTEE OS}. Since \textit{OPTEE OS} runs under the \textit{ARM Trustzone} technology, it too will be briefly mentioned. In the end, the \textit{Rust} language will be quickly introduced, showing the most interesting features and utilities that will be useful for fuzzing.
+This thesis will focus on setting up fuzzing on small, embedded systems. To simulate this environment, the \textit{OPTEE OS} operating system will be used as the platform for the fuzzer. Additionally, I wanted to focus on fuzzing software written in \textit{Rust}, as it is becoming more and more popular in system design. Consequently, this chapter will describe all the relevant topics, starting from the actual fuzzing itself. This will be followed by the analysis of the \textit{QEMU} system emulator, which will be utilized to run the \textit{OPTEE OS}. Since \textit{OPTEE OS} runs under the \textit{ARM Trustzone} technology, it too will be briefly mentioned. In the end, the \textit{Rust} language will be quickly introduced, showing the most interesting features and utilities that will be useful for fuzzing.
 
-\subsection{Fuzzing} \label{chap:theory}
+\subsection{Fuzzing} 
 
-Creating tests automatically or manually is vital for delivering secure and stable software. However, the task of doing it by hand might be challenging as the complexity rises. At some point, it's not worth spending hours trying to figure out another edge case the tested software may encounter. To solve such issues, automatic test generators or fuzzers were invented. As stated in \cite{fuzzing_state_of_art} fuzz testing or fuzzing in short is a technique that uses invalid data to find bugs and security vulnerabilities. In a nutshell, this process involves taking a sequence of bytes and then passing it as input to the target. Therefore, we can divide this process into two parts, the first being the generation and the latter the interpretation. In the case of, file format parsers like, for example, image viewers, it is rather straightforward as the generated sequence can be passed directly as an image file. On the other hand, fuzzing language interpreters is more sophisticated, as supplying them with random data might not go over the lexical and grammatical part of the parser. As a result, it limits our ability to explore the target. I bring up the topic of fuzzing language interpreters as operating systems and interpreters have in some sense much in common. Both take some language as input and conduct extensive checks on the input. In the case of operating systems, this language consists of a sequence of system calls.
+Creating tests automatically or manually is vital for delivering secure and stable software. However, the task of doing it by hand might be challenging as the complexity rises. At some point, it's not worth spending hours trying to figure out another edge case the tested software may encounter. To solve such issues, automatic test generators or fuzzers were invented. As stated in \cite{fuzzing_state_of_art} fuzz testing or fuzzing in short is a technique that uses invalid data to find bugs and security vulnerabilities. In a nutshell, this process involves taking a sequence of bytes and then passing it as input to the target. Therefore, we can divide this process into two parts, the first being the generation and the latter the interpretation. In the case of, file format parsers like, for example, image viewers, it is rather straightforward as the generated sequence can be passed directly as an image file. On the other hand, fuzzing language interpreters is more sophisticated, as supplying them with random data might not go over the lexical and grammatical part of the parser. As a result, it limits our ability to explore the target. The topic of fuzzing language interpreters was brought up as operating systems and interpreters have in some sense much in common. Both take some language as input and conduct extensive checks on the input. In the case of operating systems, this language consists of a sequence of system calls.
 
 
 \paragraph{Simplest fuzzing setup}
@@ -34,7 +34,7 @@ The simplest fuzzing setup is shown in figure \ref{fig:simp_fuzz}. It consists o
 
 \subsubsection{Genetic Fuzzing}
 
-The next step in evolution was to employ heuristic algorithms to speed up the process of fuzzing. Usually, these were different variations of genetic algorithms, therefore such fuzzers were categorized as genetic or guided. The first fuzzer to use this approach successfully was the \textit{American Fuzzy Loop} developed by Michał Zalewski in \cite{afl}. To see how such a fuzzer works, let us assume that we have some metric allowing us to compare how a single test case generated by the fuzzer is better than the other. Now it is possible to use a genetic algorithm to act as the test case generator. Each specimen is a test case stored as a sequence of bytes. They are mutated using several methods which are specific to each fuzzer. Designing a good mutator requires some experience in testing software. For example, typical memory pitfalls present in languages like \textit{C} or \textit{C++} appear when the index accessing some array becomes a very large or negative number. This if not properly handled leads to out-of-bounds access which can have serious security consequences. With this knowledge, a good way to start is to mutate a single byte in the test case by:
+The next step in the evolution of fuzzer programs was the employment of heuristic algorithms to speed the process up. Usually, these were different variations of genetic algorithms, therefore such fuzzers were categorized as genetic or guided. The first fuzzer to use this approach successfully was the \textit{American Fuzzy Loop} developed by Michał Zalewski in \cite{afl}. To see how such a fuzzer works, let us assume that we have some metric allowing us to compare how a single test case generated by the fuzzer is better than the other. Now it is possible to use a genetic algorithm to act as the test case generator. Each specimen is a test case stored as a sequence of bytes. They are mutated using several methods which are specific to each fuzzer. Designing a good mutator requires some experience in testing software. For example, typical memory pitfalls present in languages like \textit{C} or \textit{C++} appear when the index accessing some array becomes a very large or negative number. This if not properly handled leads to out-of-bounds access which can have serious security consequences. With this knowledge, a good way to start is to mutate a single byte in the test case by:
 \begin{itemize}
     \item negating it,
     \item exchanging with 255 or \textit{FF} in hex,
@@ -92,7 +92,7 @@ Let us assume we have two test cases we want to compare. One possibility for doi
 \paragraph{Taking measurements}
 From the fuzzer point of view, there are no lines of code, only assembly instructions, and addresses. As a result, the final metric must rely only on addresses. From now on, there are two approaches, if the source code is available it can be instrumented during compilation. For clarity, software instrumentation is the process of adding additional instructions to perform a specific action. Usually, it is done to add a new functionality to the source code that didn't exist before. On the other hand, the lack of source code enforces the need to inject instrumentation dynamically during runtime. Formally, the first method is called \textit{whitebox fuzzing} and the latter the \textit{blackbox fuzzing}. In each case, the inserted instrumentation has one goal, to log the total execution path. A correct way of doing this would be to log every address being executed. Of course, taking down each one is unnecessary, as only a branching instruction may change the code block that is being executed. For clarity, a code block is a continuous list of assembly instructions that are executed without any jumps or other control flow instructions. 
 
-One disadvantage of \textit{whitebox fuzzing} in the context of embedded systems is that the added instrumentation will increase the memory requirements for a system. Therefore, sometimes it is easier to fuzz using the \textit{blackbox} technique. In this thesis, an approach similar to that taken by \cite{tracecoverage} can be implemented. In this work, researchers use trace messages from a virtual machine to calculate the coverage value. Of course, a virtual machine in this context refers to the \textit{Java} runtime environment. The authors use the \textit{Just In Time} compiler embedded inside \textit{Java} for code instrumentation.
+One disadvantage of \textit{whitebox fuzzing} in the context of embedded systems is that the added instrumentation will increase the memory requirements for a system. Therefore, sometimes it is easier to fuzz using the \textit{blackbox} technique. In this thesis, an approach similar to that taken by \cite{tracecoverage} can be implemented. In this work, researchers use profiling data from a virtual machine to calculate the coverage value. Of course, a virtual machine in this context refers to the \textit{Java} runtime environment. The authors use the \textit{Just In Time} compiler embedded inside \textit{Java} for code instrumentation. This thesis will focus on the \textit{whitebox fuzzing} approach to simplify the needed instrumentation. It will use a modified \textit{QEMU} to generate messages marking which code blocks were executed.
 
 \subsubsection{AFLplusplus fuzzer} \label{sec:afl}
 
@@ -132,10 +132,10 @@ One disadvantage of \textit{whitebox fuzzing} in the context of embedded systems
 \end{figure}
 
 \paragraph{AFL's instrumentation} \label{sec:aflinstr}
-The \textit{AFL fuzzer} requires the injection of code coverage instrumentation, which can be done either by a specially modified version of \textit{gcc} compiler or \textit{QEMU} emulator. In each case, the added code is almost the same and involves invoking the \textit{afl\_maybe\_log} function whenever a new branch is taken. The code of this function can be seen in listing \ref{afl_instr}. In general, this function takes the currently logged address as an argument and proceeds to increment a cell in a hash map. To additionally decrease the collisions, a simple hashing algorithm is employed, as seen in lines 4 and 7. It relies on holding the previous value of the address to mix it with the new one. Moreover, when the current value is assigned to the \textit{afl\_prev\_loc} it is shifted by one to further increase mixing. This might seem strange, as it adds a chain dependency to the sequence of indexes. In a typical hash map, this is unacceptable and results in different results based on the order of accesses. However, this is very beneficial from the standpoint of the fuzzer. One effect of this design is the encoding of how many iterations a loop undertook. Without the chaining, each loop iteration might generate exactly the same index sequence as the previous one. Next, the calculated index is truncated to the hash table size by a logic multiplication in line 5. In the end, the value is used to access and increment the element in the coverage map in line 6. After the test case is finished executing, this table is used to determine if a new execution path was found.
+The \textit{AFL fuzzer} requires the injection of code coverage instrumentation, which can be done either by a specially modified version of \textit{gcc} compiler or \textit{QEMU} emulator. In each case, the added code is almost the same and involves invoking the \textit{afl\_maybe\_log} function whenever a new branch is taken. The code of this function from \cite{aflpprepo} can be seen in listing \ref{afl_instr}. In general, this function takes the currently logged address as an argument and proceeds to increment a cell in a hash map. To additionally decrease the collisions, a simple hashing algorithm is employed, as seen in lines 4 and 7. It relies on holding the previous value of the address to mix it with the new one. Moreover, when the current value is assigned to the \textit{afl\_prev\_loc} it is shifted by one to further increase mixing. This might seem strange, as it adds a chain dependency to the sequence of indexes. In a typical hash map, this is unacceptable and results in different results based on the order of accesses. However, this is very beneficial from the standpoint of the fuzzer. One effect of this design is the encoding of how many iterations a loop undertook. Without the chaining, each loop iteration might generate exactly the same index sequence as the previous one. Next, the calculated index is truncated to the hash table size by a logic multiplication in line 5. In the end, the value is used to access and increment the element in the coverage map in line 6. After the test case is finished executing, this table is used to determine if a new execution path was found.
 
 \begin{minipage}\linewidth
-    \begin{lstlisting}[language=C,caption={Instrumentation code from AFLPlusPlus fuzzer from \cite{aflpprepo}.},captionpos=b,label={afl_instr}]
+    \begin{lstlisting}[language=C,caption={Instrumentation code from AFLPlusPlus fuzzer.},captionpos=b,label={afl_instr}]
     void afl_maybe_log(unsigned long cur_loc) {
     
       if (afl_area_ptr == NULL) { return; }
@@ -243,7 +243,7 @@ The generated code for this example can be seen in listing \ref{lst:gensrc}. Of 
     \label{fig:gentree}
 \end{figure}
 
-\pagebreak
+%\pagebreak
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[language=python,caption={Generated program from syntax tree.},label={lst:gensrc}]
 if ((0xaa) + (0xbb)) {
@@ -255,11 +255,11 @@ if ((0xaa) + (0xbb)) {
 
 \subsubsection{Fuzzing Operating Systems}
 
-Fuzzing operating system has some similarities with fuzzing language interpreters. Firstly, the operating system exposes its \textit{API} to user applications. These system calls, or \textit{syscalls} for short, can be interpreted as a language the application employs to talk to the operating system. Therefore, a good way to fuzz operating systems is to create an application that will communicate with the actual fuzzer and run test cases by calling system calls. For example, the \textit{syscalls} of the \textit{Linux} kernel consists of a function number and a couple of arguments. Those arguments can be either a number, a buffer with data, or a \textit{C} language structure. Thanks to the \textit{Linux} system implementing the \textit{POSIX} standard, the kernel uses a file descriptor to implement a generic identifier for various functionalities. This limits the complexity of the fuzzer. 
+Fuzzing operating systems have some similarities with fuzzing language interpreters. Firstly, the operating system exposes its \textit{API} to user applications. These system calls, or \textit{syscalls} for short, can be interpreted as a language the application employs to talk to the operating system. Therefore, a good way to fuzz operating systems is to create an application that will communicate with the actual fuzzer and run test cases by calling system calls. For example, the \textit{syscalls} of the \textit{Linux} kernel consists of a function number and a couple of arguments. Those arguments can be either a number, a buffer with data, or a \textit{C} language structure. Thanks to the \textit{Linux} system implementing the \textit{POSIX} standard, the kernel uses a file descriptor to implement a generic identifier for various functionalities. This limits the complexity of the fuzzer. 
 
 \paragraph{Interpreting system calls}
  
-Based on those assumptions, researchers have designed many solutions for fuzzing \textit{Linux} operating system. One such fuzzer was the \textit{Syzkaller} from \cite{syzkaller}. It works by employing a specially created language used for describing \textit{syscalls}. The programs written in this Domain Specific Language, or DSL for short, are first generated and then sent to the virtual machine to be interpreted by the \textit{syscall} executor. An example of how such a program looks is shown in listing \ref{syzkaller_dsl}. The language looks very similar to \textit{C} but what stands out is the \textit{AUTO} keyword. It is used to allocate an automatically cleaned-up variable, it works as a simple garbage collection. In the provided example, the code is passing a text literal as an argument which requires a pointer. That is why the \textit{AUTO} keyword is used to allocate a buffer with some data and then take a pointer to it. This mechanism will ensure that the buffer is not freed until the pointer is in use during fuzzing. In this program, the arguments of the \textit{openat} function were initialized as follows:
+Based on those assumptions, researchers have designed many solutions for fuzzing \textit{Linux} operating system. One such fuzzer was the \textit{Syzkaller} from \cite{syzkaller}. It works by employing a specially created language used for describing \textit{syscalls}. The programs written in this Domain Specific Language, or DSL for short, are first generated and then sent to the virtual machine to be interpreted by the \textit{syscall} executor. A program example from \cite{syzkaller_repo} written in this language can be seen in listing \ref{lst:syzkaller_dsl}. Based on this example we can see that the mentioned language looks very similar to \textit{C} but what stands out is the \textit{AUTO} keyword. It is used to allocate an automatically cleaned-up variable, it works as a simple garbage collection. In the provided example, the code is passing a text literal as an argument which requires a pointer. That is why the \textit{AUTO} keyword is used to allocate a buffer with some data and then take a pointer to it. This mechanism will ensure that the buffer is not freed until the pointer is in use during fuzzing. In this program, the arguments of the \textit{openat} function were initialized as follows:
 \begin{enumerate}
     \item \textit{int dirfd} - file descriptor pointing to a directory, got value \textit{0xffffffffffffff9c} which is some negative number when converted to an \textit{int},
     \item \textit{const char* pathname} - this argument takes a pointer to a text literal, to initialize it the fuzzer allocated the buffer with the text and acquired a pointer, here it will try to open "./file1",
@@ -274,7 +274,7 @@ Similarly, the \textit{write} function is called with:
 \end{enumerate}
 
 \begin{minipage}\linewidth
-    \begin{lstlisting}[language=C,caption={\textit{Syzkaller} DSL describing syscalls \cite{syzkaller_repo}.},captionpos=b,label={syzkaller_dsl}]
+    \begin{lstlisting}[language=C,caption={\textit{Syzkaller} DSL describing syscalls.},captionpos=b,label={lst:syzkaller_dsl}]
 # Obtain a file handle
 r0 = openat(0xffffffffffffff9c, &AUTO='./file1\x00', 0x42, 0x1ff)
 
@@ -285,7 +285,7 @@ write(r0, &AUTO="01010101", 0x4)
 
 \paragraph{\textit{Syzkaller} schematic}
 
-The overview of the \textit{Syzkaller fuzzer} is shown in \ref{fig:syz}. It consists of three main modules:
+The overview of the \textit{Syzkaller fuzzer} from \cite{syzkaller_repo} is shown in \ref{fig:syz}. It consists of three main modules:
 \begin{enumerate}
     \item \textit{syz-manager} - this is the main program managing virtual machines with the fuzzed operating system,
     \item \textit{syz-fuzzer} - the actual fuzzer, it runs the genetic algorithm steps, creating new test cases and sending those which uncovered a new execution path to the \textit{syz-manager},
@@ -345,7 +345,7 @@ The \textit{TCG} module, as described in \cite{qemutcg}, can be split into two p
 
 The \textit{QEMU OPS} virtual architecture implements a \textit{RISC} like processor with simple load, store, and arithmetic operations. This is of course insufficient to simulate all complicated instructions of a \textit{CISC} processor for example Intel x86. Therefore, the designers of \textit{QEMU} implemented a mechanism allowing to just register a callback function to be run when the translated instruction is executed. This is a very powerful mechanism, as the callback has access to both the emulated system and the \textit{QEMU} process running on the host. This allows not only emulating very complicated instructions of a \textit{CISC} processor but also instruction used to communicate directly with the emulator. Such instructions are called \textit{hyper calls} since they are used in communication with the \textit{hypervisor}.
 
-An example of an intermediate assembly is shown in listing \ref{lst:tcgir}. It can be seen that most of the instructions are of arithmetic type that can operate on registers and a couple of special ones to interact with memory or QEMU internals. In the end, there are several interesting orders:
+An example of an intermediate assembly is shown in listing \ref{lst:tcgir} which shows an example list of instructions from \cite{qemutcgir}. It can be seen that most of the instructions are of arithmetic type that can operate on registers and a couple of special ones to interact with memory or QEMU internals. In the end, there are several interesting orders:
 \begin{itemize}
     \item \textit{qemu\_st\_i32 r0,tmp0,beul,3} - this is the memory access operation that stores data (from \textit{r0}) on address (\textit{tmp0}), the next 2 arguments specific the access type (endianess, bus width) and memory index which selects kernel and user memory, naturally there exists an equivalent \textit{qemu\_ld\_i32} load instruction,
     \item \textit{call        store\_msr,\$0,tmp0} - this will call the \textit{store\_msr} TCG helper which is a function complied into QEMU, here \textit{\$0} represents the return value and then follows the parameter list,
@@ -355,7 +355,7 @@ An example of an intermediate assembly is shown in listing \ref{lst:tcgir}. It c
 Later in this thesis, chapter \ref{chap:qemu} will focus on modifying this module to allow communication between the \textit{AFL} fuzzer and the operating system running inside.
 
 \begin{minipage}{\linewidth}
-\begin{lstlisting}[caption={QEMU TCG intermediate assembly code from \cite{qemutcgir}.},label={lst:tcgir}]
+\begin{lstlisting}[caption={QEMU TCG intermediate assembly code.},label={lst:tcgir}]
 0xfff00100:  movi_i32    r1,$0x10000
 
 0xfff00104:  movi_i32    tmp0,$0x409c
@@ -387,7 +387,7 @@ Last, but not least, there are the \textit{vCPU} threads. These are responsible 
 
 
 \subsubsection{\textit{Trustzone} technology} \label{sec:tz}
-Each contemporary \textit{CPU} architecture implements a module responsible for providing security features, which is isolated from the main operating system. This way, application developers can create more secure services. Each service can store secrets inside encrypted secure memory or derive keys for encryption and signature verification. Thanks to this, the compromise of the main operating system might not lead directly to the leakage of sensitive data. In \textit{ARM} CPU, this technology is implemented as a more privileged mode of the CPU. It is named \textit{Trustzone} and defined in \cite{trustzonedoc}.
+All contemporary \textit{CPU} architecture implements a module responsible for providing security features, which is isolated from the main operating system. This way, application developers can create more secure services. Each service can store secrets inside encrypted secure memory or derive keys for encryption and signature verification. Thanks to this, the compromise of the main operating system might not lead directly to the leakage of sensitive data. In \textit{ARM} CPU, this technology is implemented as a more privileged mode of the CPU. It is named \textit{Trustzone} and defined in \cite{trustzonedoc}.
 
 \begin{figure}
     \centering
@@ -396,7 +396,7 @@ Each contemporary \textit{CPU} architecture implements a module responsible for 
     \label{fig:tzarmv8}
 \end{figure}
 
-The diagram showing the security architecture of \textit{armv8} processor is shown in figure \ref{fig:tzarmv8}. The major difference between this architecture and, for example, the \textit{Intel x86} is the existence of other so-called worlds. There is a non-secure world, where the "normal" operating system, like for example \textit{Android} lives. The latter called the secure world provides space for the special security-oriented operating system. On the architectural level, the worlds are implemented by selectively allowing and forbidding access to parts of physical memory based on whether the CPU is running in secure or normal mode. The non-secure world is sometimes called the rich world, as it doesn't implement this many security enhancements as the secure one.
+The diagram showing the security architecture of \textit{armv8} processor from \cite{tzsyf} is shown in figure \ref{fig:tzarmv8}. The major difference between this architecture and, for example, the \textit{Intel x86} is the existence of other so-called \textit{worlds}. There is a non-secure world, where the "normal" operating system, like for example \textit{Android} lives. The latter called the secure world provides space for the special security-oriented operating system. On the architectural level, the worlds are implemented by selectively allowing and forbidding access to parts of physical memory based on whether the CPU is running in secure or normal mode. The non-secure world is sometimes called the rich world, as it doesn't implement this many security enhancements as the secure one.
 
 Apart from different worlds, the CPU employs different privilege modes to separate running code. There exist four different levels:
 \begin{enumerate}
@@ -407,7 +407,7 @@ Apart from different worlds, the CPU employs different privilege modes to separa
 \end{enumerate}
 
 \subsubsection{OPTEE OS}
-\textit{OPTEE OS} is an open source, security-oriented operating system designed specially for \textit{Trustzone} technology. It consists of a core written in \textit{C} and applications called \textit{Trusted Application} or in short “TA's”. Each such application can expose an interface to either another \textit{TA} or as a service in the non-secure world. The architecture diagram can be seen in figure \ref{fig:optee}. As we can see from the diagram, \textit{OPTEE OS} kernel and application live solely in the secure world and talk to the non-secure through a communication channel provided by the \textit{CPU}. The non-secure world then utilizes a device driver to call secure services. The tasks of such operating systems are wide and range from verifying code signatures through key derivation to storing data securely in encrypted memory. An example of how this technology can be used is provided in \cite{opteeusage}. There, the researchers describe developing security mechanisms useful in \textit{IoT} or \textit{Internet of Things} devices. The article focuses on different aspects of security:
+\textit{OPTEE OS} is an open source, security-oriented operating system designed specially for \textit{Trustzone} technology. It consists of a core written in \textit{C} and applications called \textit{Trusted Application} or in short “TA's”. Each such application can expose an interface to either another \textit{TA} or as a service in the non-secure world. The architecture diagram of \textit{OPTEE OS} from \cite{opteeblog} can be seen in figure \ref{fig:optee}. As we can see from the diagram, \textit{OPTEE OS} kernel and application live solely in the secure world and talk to the non-secure through a communication channel provided by the \textit{CPU}. The non-secure world then utilizes a device driver to call secure services. The tasks of such operating systems are wide and range from verifying code signatures through key derivation to storing data securely in encrypted memory. An example of how this technology can be used is provided in \cite{opteeusage}. There, the researchers describe developing security mechanisms useful in \textit{IoT} or \textit{Internet of Things} devices. The article focuses on different aspects of security:
 \begin{enumerate}
     \item Confidentiality - making sure that the stored information is available only to authorized appliances, 
     \item Integrity - attesting data and software to detect malicious tampering,
@@ -415,24 +415,31 @@ Apart from different worlds, the CPU employs different privilege modes to separa
     \item Availability - ensure that the security module is always available,
     \item Privacy - the need to keep all information confidential.
 \end{enumerate}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=.8\linewidth]{tex/img/op-tee-software-architecture.jpg}
+    \caption{\textit{OPTEE OS} architecture diagram.}
+    \label{fig:optee}
+\end{figure}
 
 \paragraph{\textit{OPTEE OS} architecture}
 As a result of \textit{OPTEE OS} being a secure-oriented OS, its application interface provides a lot of cryptography-related functions. It implements many symmetric and asymmetric ciphers along with hash functions. Though the system doesn't implement a casual file system, it has secure encrypted storage that can be accessed from the non-secure world. This allows for creating an application with a special secure part running in \textit{Trustzone} which handles all sensitive operations. Of course, the security of the entire system relies on the security of the secure driver. If there is any vulnerability inside, it may compromise the secure service. Naturally, this is not easy as one must find first a vulnerability in the non-secure application to even reach the secure part, so the isolation adds a level of complexity to a potential attack. As an open source project, \textit{OPTEE OS} can be deployed on a couple of hardware platforms, such as the \textit{Raspberry Pi} family and other boards having an \textit{ARM} CPU with \textit{Trustzone} support. Thankfully, it can also be emulated in \textit{QEMU} using the default \textit{ARM} virtual machine board definition. This makes testing and development easy as it is not required to acquire some special proprietary hardware.
 
-\begin{figure}[h!]
-    \centering
-    \includegraphics[width=.8\linewidth]{tex/img/op-tee-software-architecture.jpg}
-    \caption{\textit{OPTEE OS} architecture diagram from \cite{opteeblog}.}
-    \label{fig:optee}
-\end{figure}
 
 
-\subsection{Rust}
+\subsection{Rust programming language and environment}
 
 \textit{Rust} programming language is a recently created, primarily targeted for system programmers. The design of this language is available in so-called \textit{Rust book} in \cite{rustbook}, which is a comprehensive description of features and design choices.  It is advertised as a \textit{C/C++} successor in the fields of operating systems, driver, and operating system services development. Therefore, \textit{Rust} supports many architectures and operating systems. Additionally, it can be compiled without any external dependencies, or in a so-called bare metal environment, to be used to implement the operating system. As with every modern programming language, Rust comes with its package manager. Typically a package manager is a tool allowing for fetching and configuring the dependencies required to compile the project. A project is a directory containing a package. Continuing, a package is a set of crates, and a crate is according to the \textit{Rust} documentation the smallest amount of code that the \textit{Rust} compiler considers at the time. Such an entity consists of the crate manifest and source files. The Rust designers have also divided crates into two types, there can be library crates which can only expose functionalities, and executable crates which are then compiled into a binary.
 
 \paragraph{Advantages of Rust}
-\textit{Rust} introduces new security mechanisms which are absent in the family of languages derived from \textit{C}. Primarily, \textit{Rust} focuses on memory and thread safety as stated in \cite{rustmemorysafety}. First, \textit{Rust} abandons the use of pointers and allows only references. This enhancement is motivated by the fact that most bugs found in software are memory corruptions. Along with disallowing the use of pointers inside the so-called safe code, \textit{Rust} introduces lifetime checking of references. The entity enforcing those rules was named the borrow checker, its task is to ensure that all entities live in memory as long as they are used. This eliminates other memory bugs such as the popular “use-after-free” where an object is destroyed, yet there still exists a reference to the freed memory and other parts of the program are still executing as if the object still existed. An example of such code can be seen in listing \ref{badcpp} written in \textit{C++}. In this code, the function creates a local variable on the stack named \textit{var} and assigns a value of 0. Then the code takes a reference to \textit{var} and returns it from the function. This results in accessing unallocated memory, as the variable is allocated at the beginning of the function and freed just before returning. In comparison, listing \ref{badrust} shows the equivalent code in \textit{Rust}. Here, just like in the \textit{C++} example, the code allocates on the stack a 32-bit signed variable and assigns a value of $0$. Then it proceeds with returning a reference to it. For clarity, in \textit{Rust} the value of the last expression in a function is treated as the return value. Hence, there is no need to explicitly use the \textit{return} keyword, although \textit{Rust} supports it. As expected, the \textit{C++} example compiled without issue, only emitting a warning that can be silenced, whereas Rust terminates the compilation with a message stating that the return value of the function is not long enough. Additionally, \textit{Rust} controls how references to variables are created. The language introduces two types of references: the immutable one which doesn't allow for the modification of the object it is pointing to, and the mutable which does. There are two major rules governing the creation of these references:
+\textit{Rust} introduces new security mechanisms which are absent in the family of languages derived from \textit{C}. Primarily, \textit{Rust} focuses on memory and thread safety as stated in \cite{rustmemorysafety}. First, \textit{Rust} abandons the use of pointers and allows only references. This enhancement is motivated by the fact that most bugs found in software are memory corruptions. Along with disallowing the use of pointers inside the so-called safe code, \textit{Rust} introduces lifetime checking of references. The entity enforcing those rules was named the borrow checker, its task is to ensure that all entities live in memory as long as they are used. This eliminates other memory bugs such as the popular “use-after-free” where an object is destroyed, yet there still exists a reference to the freed memory and other parts of the program are still executing as if the object still existed. 
+
+An example of such code can be seen in listing \ref{lst:badcpprust} written in \textit{C++} and \textit{Rust}. In both cases, the function creates a local variable on the stack named \textit{var} and assigns a value of 0. Then the code takes a reference to \textit{var} and returns it from the function. This results in accessing unallocated memory, as the variable is allocated at the beginning of the function and freed just before returning. 
+
+%In comparison, listing \ref{badrust} shows the equivalent code in \textit{Rust}. 
+%Here, just like in the \textit{C++} example, the code allocates on the stack a 32-bit signed variable and assigns a value of $0$. Then it proceeds with returning a reference to it. For clarity, in \textit{Rust} the value of the last expression in a function is treated as the return value. Hence, there is no need to explicitly use the \textit{return} keyword, although \textit{Rust} supports it. 
+
+As expected, the \textit{C++} example compiled without issue, only emitting a warning that can be silenced. In the case of Rust, the compiler would terminate the compilation with a message stating that the return value doesn't live long enough as its lifetime is bound to the functions that created it. Additionally, \textit{Rust} controls how references to variables are created. The language introduces two types of references: the immutable one which doesn't allow for the modification of the object it is pointing to, and the mutable which does. There are two major rules governing the creation of these references:
 \begin{enumerate}
     \item an object can have immutable references if and only if it doesn't have any mutable reference,
     \item an object cannot have multiple mutable references.
@@ -441,23 +448,25 @@ These restrictions ensure that objects don't suddenly change or become deleted w
 
 Apart from that, \textit{Rust's} assignment operation moves the argument instead of copying it, as is the case in languages like \textit{C++}. This allows to write efficient code, as each copy operation needs to be explicitly allowed. Besides that, the language provides a mechanism to securely pass entities between threads. Basically, \textit{Rust} bans the usage of an object in a multithreaded environment if it doesn't implement the proper synchronization mechanisms. This eliminates race conditions where threads race for access to a shared resource and different order of accesses leads to different execution results. Unfortunately, this doesn't solve the problem of two threads locking up on a shared pair of resources, stalling the execution forever. Therefore, the deadlock problem is still persistent and needs to be avoided. 
 
-\begin{minipage}{.4\textwidth}
-    \begin{lstlisting}[language=c++,caption={Example of a memory corruption bug in C++.},captionpos=b,label={badcpp}]
+\begin{table}
+    \centering
+    \begin{tabular}{c@{\hskip 1cm}|@{\hskip 1cm}c}
+        \begin{lstlisting}
 int& function() {
     int var = 0;
     return &var;
 }
-    \end{lstlisting} 
-\end{minipage}
-\hfill\vline\hfill
-\begin{minipage}{.4\textwidth}
-    \begin{lstlisting}[language=rust,caption={Replicating a memory corruption bug in Rust.},captionpos=b,label={badrust}]
+        \end{lstlisting} &
+        \begin{lstlisting}
 fn function() -> &i32 {
     let var = 0i32;
     &var
 } 
-    \end{lstlisting}
-\end{minipage}
+        \end{lstlisting}\\
+    \end{tabular}
+    \captionof{lstlisting}{Example of a memory corruption bug in C++ and Rust.}
+    \label{lst:badcpprust}
+\end{table}
 
 \textit{Rust} designers have also abandoned the use of inheritance as a polymorphism mechanism, they instead introduced traits. Each trait defines an interface that can be implemented by a struct, which then allows the object to be referred to as a reference to the trait it implements. This effectively replaces the inheritance, without the potential complications that can arise like, for example, diamond inheritance. For clarity, this class derivation scheme happens when some base class exists in multiple instances in the inheritance tree. Normally, this situation is impossible in languages like \textit{C\#} or \textit{Java} where a class can only inherit from a single base class. As a result, all inheritance schemas are trees, usually starting from a single base class. However, \textit{C++} language allows for multi-base inheritance, which can lead to complicated structures in the derivation graph.
 
@@ -498,7 +507,7 @@ fn read_register() -> u32 {
     \end{lstlisting}    
 \end{minipage}
 
-\subsubsection{\texttt{proc macro} mechanism}
+\subsubsection{Macros and procedural macros}
 \textit{Rust} programming language lacks the usual meta programming tools like:
 \begin{itemize}
     \item text preprocessor, as in \textit{C}

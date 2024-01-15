@@ -1,6 +1,6 @@
 \cleardoublepage
-\section{System components} \label{chap:why}
-To succeed with the task of fuzzing custom operating systems, I needed to find a quick way of running a test, and then recording and analyzing the results. The analysis part is usually performed by genetic algorithms embedded in fuzzers. Therefore, the designed solution should easily integrate with a well-known fuzzer. In my case, being inspired by the \textit{Triforce AFL} project from \cite{triforceafl}, I have chosen the \textit{AFLplusplus} fuzzer. The next element in the puzzle is the emulator. There are a lot of widely available solutions, but most of them aren't open-source, which makes modifying them a real hassle. This narrows the choice to \textit{QEMU} and \textit{Xen}. Due to my experience with, \textit{QEMU} I've chosen this over \textit{Xen}. The target is a service running in the secure world in so-called \textit{Trustzone}. It runs under \textit{OPTEE OS} operating system and performs a couple of security operations. Since the application runs in \textit{Trustzone}, QEMU needs to emulate a version of ARM that supports it. The host architecture is the \textit{Intel x86} as the tests are executed on an off-the-shelf laptop computer. 
+\section{System components and architecture} \label{chap:why}
+To succeed with the task of fuzzing custom operating systems, I needed to find a quick way of running a test, and then recording and analyzing the results. The analysis part is usually performed by genetic algorithms embedded in fuzzers. Therefore, the designed solution should easily integrate with a well-known fuzzer. In my case, being inspired by the \textit{Triforce AFL} project from \cite{triforceafl}, I have chosen the \textit{AFLplusplus} fuzzer. The next element in the puzzle is the emulator. There are a lot of widely available solutions, but most of them aren't open-source, which makes modifying them a real hassle. This narrows the choice to \textit{QEMU} and \textit{Xen}. Due to my experience with \textit{QEMU} I've chosen it over \textit{Xen}. The target is a service running in the secure world in so-called \textit{Trustzone}. It runs under \textit{OPTEE OS} operating system and performs a couple of security operations. Since the application runs in \textit{Trustzone}, QEMU needs to emulate a version of ARM that supports it. The host architecture is the \textit{Intel x86} as the tests are executed on an off-the-shelf laptop computer. 
 
 The \textit{Trustzone} technology was designed to provide services for applications running in the normal mode. Therefore, this fuzzing setup has also one component in the \textit{Linux} operating system in the normal world. Its role is to set everything up and begin fuzzing by loading the special trusted application and invoking the function that starts fuzzing in the secure world. On the other hand, the secure world part is responsible for communication with the \textit{AFL} fuzzer through \textit{QEMU}. Furthermore, this is the part that calls the secure services. In an everyday situation, those services would be exposed to the normal world, but since this is just a demonstration setup, the fuzzer was integrated directly. On the other hand, calling services indirectly from the normal world would most likely add some needless latency. Besides that, the secure part also performs the test case interpretation and the final function calls. 
 
@@ -77,13 +77,14 @@ This thesis is about fuzzing services provided by a secure operating system whic
         \node (host) [host, below of=qemu, text width=14.5cm, yshift=-5cm, xshift=-2cm] { Intel x86 host computer };
 
         \draw [darrow] (afl) -- (srv) node[midway, left] {pipes};
-        \draw [darrow] (srv) |- (fuzzerint) node[midway, above right, text width=2cm] {signals and semaphores};
+        \draw [darrow] (srv) |- ++(3.75cm, -3.8cm) node[midway, below right, text width=2cm] {signals and semaphores};
         \draw [darrow] (fuzzerint) -- (fuzzer) node[midway, left] {hypercalls};
         \draw [darrow] (fuzzer) -- (target) node[midway, right] {API};
         \draw [darrow] (target) --++ (0cm, +1cm) node[midway, right] {API};
-        \draw [arrow, dashed] (fuzz2) -- (target) node[midway, above] {Loads};
-        \draw [arrow, dashed] (fuzz2) |- (fuzzer) node[midway, right] {Loads};
+        \draw [arrow, dashed] (fuzz2) -- (target) node[midway, above] {Start};
+        \draw [arrow, dashed] (fuzz2) |- (fuzzer) node[midway, right] {Start};
         \draw [arrow, dashed] (tcg) |- ++(-5cm, 1.8cm) node[midway, above] {Implements hypercalls};
+        \draw [darrow, dotted] (afl) -| ++(2.5cm, -6.2cm) node[above left, text width=1.5cm] {shared memory} |- ++(1.25cm, 0cm) {};
         
     \end{tikzpicture}
     
