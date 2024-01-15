@@ -5,15 +5,15 @@
 %\subsection{Requirements and design choices}
 %The fuzzing target will be a set of classes with member functions which compose the interface of a secure service. Of course, in Rust there are no classes as it has only structs and implementations, but for simplicity I will refer to struct with member functions as classes. The fuzzer will create objects of these classes and then proceed with fuzzing their member functions. The use of generics and explicit lifetime parameters is not supported to simplify the design. The target will be running as a trusted application inside \textit{OPTEE OS}. This program will be compiled with all necessary utilities to communicate with the fuzzer through \textit{QEMU}.
 
-\subsection{Chapter content}
+\subsection{Overview}
 
-This chapter focuses on exploring the inner workings of the test case decoder mentioned in chapter \ref{chap:why}. It can be divided into a couple of submodules as seen in figure \ref{fig:cntdiag}. The main task of this module is to interpret test cases from \textit{AFLplusplus} fuzzer and call the secure services based on the received data. This is accomplished by the following stages:
+This chapter focuses on exploring the inner workings of the test case decoder (refer to chapter \ref{chap:why}). It can be divided into a couple of submodules as seen in figure \ref{fig:cntdiag}. The main task of this module is to interpret test cases from \textit{AFLplusplus} fuzzer and call the secure services based on the received data. Overall, setting everything up requires several actions, of which only the first needs to be done manually. In detail it goes as follows:
 \begin{enumerate}
-    \item The preparation phase begins with the description which tells the fuzzer how to use the interface the target provides. This step is called \textit{API description} and utilizes a specially created language. The design and some examples of this domain-specific language are provided in section \ref{sec:lang}.
-    \item Next, the target description is fed to the compiler which generates the so-called \textit{executor}. This is done by implementing a special \textit{proc macro} which takes as an argument the source code of the special language end emits \textit{Rust} code implementing the test case decoder. It is described in section \ref{sec:compiler}.
+    \item Manually preparing the description of the fuzzed target which tells the fuzzer how to use the interface the target provides. This step is called \textit{API description} and utilizes a specially created language. The design and some examples of this domain-specific language are provided in section \ref{sec:lang}.
+    \item Next, the target description is fed to the compiler which generates the so-called \textit{executor}. This is done by implementing a special \textit{proc macro} which takes as an argument the target description and emits \textit{Rust} code implementing the test case decoder. It is described in section \ref{sec:compiler}.
     \item Finally, the generated \textit{executor} module communicates with the \textit{QEMU} to fetch the test cases and then interprets them using the compiled code. During execution of the test case, this module calls directly the target which is represented by the \textit{Secure services} module. The actual algorithm which controls the fuzzing process is walked through in section \ref{sec:testcase}.
 \end{enumerate}
-The second task is all about seeding the \textit{AFLplusplus} corpus using unit tests of the target. As already discussed preparing a robust corpus helps the fuzzer explore the target. The corpus elements can be treated as examples of how to call the target's interface. In a nutshell, a good corpus might increase the fuzzer perfomance by shortening the fuzzing time required to uncover the same number of bugs. Since the compiler is used to generate the test case interpreter it can also be used to go the opposite way and create test cases from function calls. This process works as follows:
+The second task is all about seeding the \textit{AFLplusplus} corpus using unit tests of the target. As already discussed, preparing a robust corpus helps the fuzzer to explore the target. The corpus elements can be treated as examples of how to call the target's interface. In a nutshell, a good corpus might increase the fuzzer perfomance by shortening the fuzzing time required to uncover the same number of bugs. Since the compiler is used to generate the test case interpreter it can also be used to go the opposite way and create test cases from function calls. This process works as follows:
 \begin{enumerate}
     \item The compiler uses the target description to generate the test case reverser. In detail, the generated \textit{Rust} source code contains an augmented replica of the target that acts as a proxy and traces the function parameters to assemble the test cases. This process is described in section \ref{sec:testint}.
     \item The module containing the unit tests is modified to use the generated replica to seamlessly introduce instrumentation. After each unit test the generated sequence of bytes is returned to \textit{QEMU} to be saved in the corpus folder of \textit{AFLplusplus}.
@@ -64,14 +64,14 @@ Similarly, like in chapter \ref{chap:why} the background colors are used to dist
             \node (qemu) [opensource, fit={(opteeos) (fuzzint)}, label={ QEMU }, text height=9.2cm] {};
         \end{pgfonlayer}
         
-        \draw [arrow] (api) -- (compiler);
-        \draw [arrow] (unittests) -- (rev);
-        \draw [arrow] (compiler) -- (rev);
-        \draw [arrow] (compiler) -- (executor);
-        \draw [arrow] (rev) -- (fuzzint);
-        \draw [darrow] (executor) -- (services);
-        \draw [arrow] (fuzzint) -| (executor); 
-        \draw [darrow] (services) --++ (0cm, 2cm);
+        \draw [arrow] (api) -- (compiler) node[midway, above, yshift=0.5cm] {input};
+        \draw [arrow] (unittests) -- (rev) node[midway, above, yshift=0.5cm] {input};
+        \draw [arrow] (compiler) -- (rev)node[midway, right] {generates};
+        \draw [arrow] (compiler) -- (executor)node[midway, above, yshift=0.5cm] {generates};
+        \draw [arrow] (rev) -- (fuzzint)node[midway, left, yshift=-0.3cm] {generates test cases};
+        \draw [darrow] (executor) -- (services)node[midway, above, yshift=0.5cm] {API calls};
+        \draw [arrow] (fuzzint) -| (executor)node[midway, right, text width=2cm]{provides test cases}; 
+        \draw [darrow] (services) --++ (0cm, 2cm)node[midway, left] {syscalls};
     \end{tikzpicture}
     \caption{Modules diagram.}
     \label{fig:cntdiag}
@@ -112,12 +112,58 @@ pub enum Friend {
 \end{lstlisting} 
 \end{minipage}
 
-The inner workings of this library are quite simple. It defines a custom deserialization algorithm for each of the standard types. For clarity, in the \textit{Friend} \textit{enum} example the types can be handled as follows:
+\tikzstyle{statement} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{expression} = [rectangle, minimum height=1cm,text centered, draw=black, fill=yellow!30]
+\tikzstyle{other} = [rectangle, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+The inner workings of this library are quite simple. It defines a custom deserialization algorithm for each of the standard types. For clarity, an example of how an object of type \textit{Friend} is encoded can be seen in figure \ref{fig:firendencode}. Since this enumeration has two options, the serializer will first assign unique identifiers to each option. As it is shown in the example the \textit{Buddy} received an identification value of \textit{01} and \textit{Pal} of \textit{02}. After the identifier has been saved the rest depends on the exact inner objects:
 \begin{itemize}
-    \item the \textit{usize} implements the \textit{from\_le\_bytes} function which can be used directly, for example \textit{usize::from\_le\_bytes([1, 0, 0, 0, 0, 0, 0, 0])} returns an \textit{usize} with the value of $1$,
-    \item the \textit{String} type is just a collection of characters, so as every iterable entity this can be serialized as its length which is a number, and then followed by the characters,
-    \item finally the \textit{enum} itself can be treated as a union of different entities which are distinguished by an assigned number that is unique to each option, after the identifier is saved, the rest of the \textit{enum} can be treated as a \textit{union} from \textit{C} language which means that we can just serialize the object associated with the chosen option right after the identifier.
+    \item In case of \textit{Buddy}, the \textit{Name} is saved as its length (\textit{04}) and the text literal (\textit{ 4A 61 63 6B }, or "Jack").
+    \item In case of \textit{Pal}, the \textit{Age} is saved as a 8 byte number (\textit{20 00 00 00 00 00 00 00}).
 \end{itemize}
+
+\begin{figure}[h!]
+    \centering
+
+    \begin{tikzpicture}
+        \begin{pgfonlayer}{background1}
+            \node (buddyid) [other, label={Id}, text width=0.5cm] { 01 };
+            \node (palid) [other, label={Id}, text width=0.5cm, below of=buddyid, yshift=-3cm] { 02 };
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background2}
+            \node (len) [other, right of=buddyid, xshift=0.5cm, label={Length}] { 04 };
+            \node (str) [other, right of=len, xshift=1cm, label={Text}] { 4A 61 63 6B };
+            \node (age) [other, right of=palid, xshift=2cm, label={Age}] { 20 00 00 00 00 00 00 00 };
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background1}
+            \node (name) [other, fit={(len) (str)}, text height=2cm, text width=4cm, label={Name}] {};
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background0}
+            \node (buddy) [expression, fit={(buddyid) (name)}, text height=3cm, label={Buddy}] {};
+            \node (pal) [expression, fit={(palid) (age)}, text height=2cm, label={Pal}] {};
+        \end{pgfonlayer}
+
+        \node (friend) [statement, below of=buddyid, yshift=-1cm, xshift=-4cm] {Friend};
+
+        \draw [arrow] (friend) |- (buddy);
+        \draw [arrow] (friend) |- (pal);
+    \end{tikzpicture}
+
+    \caption{Example encoding of the Friend enum.}
+    \label{fig:firendencode}
+\end{figure}
+
+
+%For clarity, in the \textit{Friend} \textit{enum} example the types can be handled as follows:
+%\begin{itemize}
+%    \item the \textit{usize} implements the \textit{from\_le\_bytes} function which can be used directly, for example \textit{usize::from\_le\_bytes([1, 0, 0, 0, 0, 0, 0, 0])} returns an \textit{usize} with the value of $1$,
+%    \item the \textit{String} type is just a collection of characters, so as every iterable entity this can be serialized as its length which is a number, and then followed by the characters,
+%    \item finally the \textit{enum} itself can be treated as a union of different entities which are distinguished by an assigned number that is unique to each option, after the identifier is saved, the rest of the \textit{enum} can be treated as a \textit{union} from \textit{C} language which means that we can just serialize the object associated with the chosen option right after the identifier.
+%\end{itemize}
 
 \subsubsection{Design of the target description language} \label{sec:lang}
 In the big picture, the API description is a list of classes, where every entry consists of two sets:
@@ -193,7 +239,9 @@ Target {
 \paragraph{Implementation of the language primitives}
 Each of the listed primitives can be implemented as an expression that transforms appropriate bytes from the test case and yields the required entity. The \textit{\#U8, \#U16, \#U32} can be implemented by just taking some number of bytes from the test case, arranging them in, for example, little-endian order, and interpreting them as a natural number. Next, the \textit{\#Slice(length)} macro takes the length as an argument and reads bytes from the test case to return it as a reference. The \textit{\#Api(name)} primitive is a reference to another class in the target list. By itself it doesn't consume test case bytes as it just recursively starts the fuzzing process again. This time, the step in the algorithm where the fuzzer chooses the class that begins the fuzzing process is omitted. Next, the \textit{\#OneOf(option1, option2)} is handled just like the other previously described lotteries. In detail, a byte is consumed and interpreted as a natural number. Naturally, the range of value is reduced to the number of given options by a modulo operation. In the generated code this operator is encoded as a sequence of conditional statements where each one handles one option. Last but not least, the \textit{ref} keyword emits a \textit{Rust's} \textit{\&} operator and doesn't impact the test case processing.
 
-To illustrate how the bytes in the test case are used, let us assume that the genetic algorithm inside \textit{AFLplusplus} generated a sequence of bytes seen in listing \ref{tc}. Naturally, these bytes aren't taken from a working example and are stated here just to demonstrate the point. Next, this test case can be coupled with its exemplary interpretation shown in listing \ref{tcdecoded}. For clarity, the corresponding parts between those listings are marked using the same background color. In detail, the test case decodes as follows:
+To illustrate how the bytes in the test case are used, let us assume that the genetic algorithm inside \textit{AFLplusplus} generated a sequence of bytes. 
+This generated test case along with its interpretation can be seen in figure \ref{fig:tcxd}. Naturally, these bytes aren't taken from a working example and are stated here just to demonstrate the point.
+For clarity, the corresponding parts between those listings are marked using the same background color. In detail, the test case decodes as follows:
 \begin{itemize}
     \item \colorbox{red!60}{A3} is used to select \textit{Aes} class,
     \item \colorbox{orange!30}{68} chooses the \textit{Aes} constructor, the \textit{Aes::new} method,
@@ -209,22 +257,43 @@ To illustrate how the bytes in the test case are used, let us assume that the ge
 \end{itemize}
 Of course, in the final setup, these test cases are passed to compiled code for execution. All details describing how this process is done are provided in the next sections. 
 
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=rust,caption={Example of interpreted test case.},label={tcdecoded}]
-<@\colorbox{red!60}{Aes}@>::<@\colorbox{orange!30}{new}@>(<@\colorbox{blue!30}{Key::new}@>(
-    <@\colorbox{green!60}{\&[0x47, 0x1F, 0x88, 0x91, 0x0F, 0x33, 0xC6, 0x28]}@>
-)).<@\colorbox{purple!30}{encrypt}@>(<@\colorbox{black!30}{\&[0x03, 0x0F, 0x74, 0x4D, 0xBA, 0x32, 0x0D, 0xFF]}@>, <@\colorbox{yellow!60}{AesMode::CBC}@>)
-\end{lstlisting}
-\end{minipage}
-
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[caption={Example test case.},label={tc}]
+\begin{figure}
+    \centering
+\begin{lstlisting}[numbers=none]
+Test case bytes:
 <@\colorbox{red!60}{A3}@> <@\colorbox{orange!30}{68}@> <@\colorbox{blue!30}{62}@> 
     <@\colorbox{green!75}{0x08}@> <@\colorbox{green!60}{47 1F 88 91 0F 33 C6 28}@> 
 <@\colorbox{brown!30}{0xC1}@> <@\colorbox{purple!30}{0E}@> <@\colorbox{black!45}{0x08}@> <@\colorbox{black!30}{03 0F 74 4D BA 32 0D FF}@> <@\colorbox{yellow!60}{AA}@> 
 <@\colorbox{brown!60}{0xA0}@>
+
+Interpretation:
+<@\colorbox{red!60}{Aes}@>::<@\colorbox{orange!30}{new}@>(<@\colorbox{blue!30}{Key::new}@>(
+    <@\colorbox{green!60}{\&[0x47, 0x1F, 0x88, 0x91, 0x0F, 0x33, 0xC6, 0x28]}@>
+)).<@\colorbox{purple!30}{encrypt}@>(<@\colorbox{black!30}{\&[0x03, 0x0F, 0x74, 0x4D, 0xBA, 0x32, 0x0D, 0xFF]}@>, <@\colorbox{yellow!60}{AesMode::CBC}@>)
 \end{lstlisting}
-\end{minipage}
+
+    \caption{Example test case.}
+    \label{fig:tcxd}
+\end{figure}
+    
+
+%\begin{minipage}{\linewidth}
+%\begin{lstlisting}[caption={Example test case.},label={tc}]
+%<@\colorbox{red!60}{A3}@> <@\colorbox{orange!30}{68}@> <@\colorbox{blue!30}{62}@> 
+%    <@\colorbox{green!75}{0x08}@> <@\colorbox{green!60}{47 1F 88 91 0F 33 C6 28}@> 
+%<@\colorbox{brown!30}{0xC1}@> <@\colorbox{purple!30}{0E}@> <@\colorbox{black!45}{0x08}@> <@\colorbox{black!30}{03 0F 74 4D BA 32 0D FF}@> <@\colorbox{yellow!60}{AA}@> 
+%<@\colorbox{brown!60}{0xA0}@>
+%\end{lstlisting}
+%\end{minipage}
+%
+%\begin{minipage}{\linewidth}
+%\begin{lstlisting}[language=rust,caption={Example of interpreted test case.},label={tcdecoded}]
+%<@\colorbox{red!60}{Aes}@>::<@\colorbox{orange!30}{new}@>(<@\colorbox{blue!30}{Key::new}@>(
+%    <@\colorbox{green!60}{\&[0x47, 0x1F, 0x88, 0x91, 0x0F, 0x33, 0xC6, 0x28]}@>
+%)).<@\colorbox{purple!30}{encrypt}@>(<@\colorbox{black!30}{\&[0x03, 0x0F, 0x74, 0x4D, 0xBA, 0x32, 0x0D, 0xFF]}@>, <@\colorbox{yellow!60}{AesMode::CBC}@>)
+%\end{lstlisting}
+%\end{minipage}
+
 
 \subsection{Designing the compiler} \label{sec:compiler}
 Like every compiler, this one also can be divided into two parts, the frontend and backend. The frontend is usually responsible for lexical and grammatical analysis of the input text. Since this compiler is created as a \textit{Rust's} \textit{proc macro}, the \textit{Rust} compiler already does the lexical analysis. The macro just needs to convert the stream of tokens into objects representing the encoded program. Typically, the program is parsed into a syntax tree based on the grammar definition. Next, the compiler uses that tree to perform semantic analysis to check if the language rules aren't broken. The designed language has simple grammar rules as it doesn't support variables, functions, or methods. Furthermore, in the case of this language, the backend will generate \textit{Rust} code which will be later compiled by the \textit{Rust} compiler into machine code. This allows omitting all steps related to semantic analysis or optimization, as these tasks will be completed by the \textit{Rust} compiler. 
@@ -317,7 +386,7 @@ The communication with the hypervisor was described in the previous chapter. The
     \item $API.functions$ - this refers to all member functions of the class.
 \end{itemize}
 This code is invoked in a loop until the entire test case is exhausted. In the first step, the class from which the fuzzing will begin is chosen. The selection process is based on drawing uniformly from a pool of options. The fairness of the lottery is ensured by taking a byte from the test case, interpreting it as a natural number, and then limiting the range of values by performing a modulo operation. Of course, when the number of choices is greater than 255 more bytes need to be used. In my case, this was always enough, as rarely the fuzzer would need to choose from more than a couple of values. 
-Naturally, the randomness of this method is not a true random generator as the test cases need to be reproducible. As a result, the discussed algorithm is just a mapping between bytes from the test case and symbols used by this algorithm. The real source of randomness in this setup is therefore the genetic algorithm inside \textit{AFL++} which uses a true random number generator to mutate and create new test cases. After the first target class is chosen, the fuzzer proceeds with selecting a constructor which will be used to create the object. Naturally, there may be many ways to construct an object of some type, therefore the constructor is also drawn just like the target in the first place. Next, the chosen function is called, and the return object is saved. When this is done, the fuzzer starts a loop which will call the member functions. This loop repeats until two conditions hold:
+Naturally, the source of randomness of this method is not a true random generator as the test cases need to be reproducible. As a result, the discussed algorithm is just a mapping between bytes from the test case and symbols used by this algorithm. The real source of randomness in this setup is therefore the genetic algorithm inside \textit{AFL++} which uses a true random number generator to mutate and create new test cases. After the first target class is chosen, the fuzzer proceeds with selecting a constructor which will be used to create the object. Naturally, there may be many ways to construct an object of some type, therefore the constructor is also drawn just like the target in the first place. Next, the chosen function is called, and the return object is saved. When this is done, the fuzzer starts a loop which will call the member functions. This loop repeats until two conditions hold:
 \begin{itemize}
     \item the end of the test case was not reached,
     \item the exit condition is not met.
@@ -500,7 +569,7 @@ macro_rules! __encode_Creds__Creds_login_arg_0__ {
 \end{minipage}
 
 \paragraph{Inspection of the return value}
-Inspection of the return value might seem unnecessary for creating the test case, as only function arguments are encoded in the test case. However, this proved to be necessary for the task of creating test cases from traced functions. Let us imagine that the unit test function created two objects of type \textit{Creds} which are then used to call some other \textit{APIs}. This situation shows a new, previously undescribed issue. Up to this point, there is no functionality in the design that allows for identifying the created objects. As a result, the fuzzing algorithm cannot select the proper object from the cache to call the member function on. For example, in languages such as \textit{Python} each object can be identified by its pointer which is returned by the built-in \textit{id()} function. Unfortunately, there is no similar mechanism in \textit{Rust}. For this reason, the objects need to have a field that can identify different instances. This additional field can be added through another \textit{proc macro} that is acting on the class definition itself. It is enough to add the field with two member functions, allowing to get and set the identifier. Now, distinguishing between objects is possible, so the only required thing to do is to set the \textit{id} value at the end of the constructor. This is where the return value inspection macro becomes handy. An example of the return value inspecting macro used in the constructor of the \textit{Creds} class is shown in listing \ref{lst:retvalinsp}. It can be seen that this macro uses a \textit{match} statement to check if the return value contains an error. In case, no error was encountered, the \textit{\_\_set\_id\_\_()} member function is called on the newly created object to set its identifier. This, beside the \textit{\_\_get\_id\_\_()}, is the specially added member function along with the hidden \textit{id} field itself. This identifier can later be used by the added tracing code to encode the correct identifier in the test case so that the fuzzer will take the correct object from the cache. The identification of the objects happens inside the \textit{select\_api} function of the \textit{TcAssembler} object. We previously said that the second argument is initialized to \textit{None} inside a constructor. Of course, a constructor creates the object, so there is no associated object. However, this is not the case in member functions, where the second argument of the \textit{select\_api} function is populated with the object's identifier. This then allows the fuzzer to select the proper object from the object cache.
+Inspection of the return value might seem unnecessary for creating the test case, as only function arguments are encoded in the test case. However, this proved to be necessary for the task of creating test cases from traced functions. Let us imagine that the unit test function created two objects of type \textit{Creds} which are then used to call some other \textit{APIs}. This situation shows a new, previously undescribed issue. Up to this point, there is no functionality in the design that allows for identifying the created objects. As a result, the fuzzing algorithm cannot select the proper object from the cache to call the member function on. For example, in languages such as \textit{Python} each object can be identified by its pointer which is returned by the built-in \textit{id()} function. Unfortunately, there is no similar mechanism in \textit{Rust}. For this reason, the objects need to have a field that can identify different instances. This additional field can be added through another \textit{proc macro} that is acting on the class definition itself. It is enough to add the field with two member functions, allowing to get and set the identifier. Now, distinguishing between objects is possible, so the only required thing to do is to set the \textit{id} value at the end of the constructor. This is where the return value inspection macro becomes handy. An example of the return value inspecting macro used in the constructor of the \textit{Creds} class is shown in listing \ref{lst:retvalinsp}. It can be seen that in line 3 this macro uses a \textit{match} statement to check if the return value contains an error. In case, no error was encountered, in line 4 the \textit{\_\_set\_id\_\_()} member function is called on the newly created object to set its identifier. This, beside the \textit{\_\_get\_id\_\_()}, is the specially added member function along with the hidden \textit{id} field itself. This identifier can later be used by the added tracing code to encode the correct identifier in the test case so that the fuzzer will take the correct object from the cache. The identification of the objects happens inside the \textit{select\_api} function of the \textit{TcAssembler} object. As previously said, the second argument is initialized to \textit{None} inside a constructor. Of course, a constructor creates the object, so there is no associated object. However, this is not the case in member functions, where the second argument of the \textit{select\_api} function is populated with the object's identifier. This then allows the fuzzer to select the proper object from the object cache.
 
 
 \begin{minipage}{\linewidth}
