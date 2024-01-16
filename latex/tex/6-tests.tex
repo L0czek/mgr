@@ -123,7 +123,7 @@ These statistics are logged every couple of seconds and allow for comparing the 
 In the following section, I present results from several experiments:
 \begin{enumerate}
     \item evaluation of the performance of virtual machine save and restore mechanism by comparing fuzzing speed and the total crashes count:
-    \begin{enumeration}
+    \begin{enumerate}
         \item the native serialization mechanism which utilizes the built-in snapshot mechanism in QEMU discussed in section \ref{sec:qemu_nat},
         \item the custom serialization mechanism that was created to try to speed up the process, this was described in section \ref{sec:qemu_cus}.
     \end{enumerate}
@@ -167,7 +167,7 @@ These tests focus on comparing the speed of the serialization mechanism which is
     \label{fig:nat_cus_cmp}
 \end{figure}
 
-\subsubsection{Without restoring the state}
+\subsubsection{No state restoration}
 For completion, I conducted experiments on how the need to save and restore states impacts the overall performance. Naturally, not resetting the state of the virtual machine might impact the global state of the operating system resulting in lesser reproducibility of bugs. 
 The changes made to this setup to allow for this experiment can be seen in figure \ref{fig:fuzzwithoutrevert}. The difference between those diagrams and the one provided at the beginning of this chapter is the addition of the \textit{Fuzzer loop} module. This element shows where the loop controlling the fuzzing process resides. It is named a loop as it repeatedly fetches test cases from the hypervisor, runs them, and reports back results. In the case of fuzzing from the normal world, the fuzzing loop operates in an application under the \textit{Linux} kernel. It communicates with \textit{QEMU} by \textit{hypercalls} to fetch test cases and report the results. Naturally, after the test case has been acquired it needs to be transferred to the secure world to the \textit{Test Case Decoder}. Thankfully, this can be done using the interface provided by secure world. For clarity, each application can have an interface to the normal world so that it can be used by user applications. On the other hand, fuzzing from the secure world, everything runs under the \textit{OPTEE OS}. The fuzzing loop communicates directly with \textit{QEMU} using \textit{hypercalls} just like before. Naturally, this time the loop can just call the \textit{Test Case Decoder} directly using simple function calls. The results can be seen in figure \ref{fig:tz_norevert_fuzzing}. The left side shows the data collected from fuzzing the \textit{Secure services} from the normal world. The other side displays the metrics from fuzzing the target directly from the secure world. It can be seen that the two described methods behave similarly and yield close results on average. It is expected that the only difference between them is the additional delay added when \textit{ARM} processor needs to switch the execution from the normal to secure world. The important thing to notice in these results is the significant speed improvement over the methods that restore the virtual machine state. 
 
