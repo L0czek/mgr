@@ -1,5 +1,5 @@
 \cleardoublepage
-\section{Tests and metrics} \label{chap:tests}
+\section{Metrics and tests} \label{chap:tests}
 
 \subsection{Test environment description}
 
@@ -337,7 +337,7 @@ Naturally, each of the measured fuzzing approaches consumes a different amount o
 
 \subsection{Structured versus direct fuzzing}
 
-Thanks to the architecture of the target we can connect the \textit{AFLplusplus} fuzzer directly as shown in figure \ref{fig:directfuzzingsetup}. It can be seen that the \textit{API interface} along with the \textit{API Serializaer} is missing. The role of the \textit{Test Case Decoder} is replaced with a simple module responsible for fetching the test case from \textit{QEMU} and passing it to the pipe connected to the \textit{API Deserializer}. Here the test case is not transformed by the \textit{Test Case Decoder}. This allows for evaluating how the test case interpretation layer presented in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. The results are shown in figure \ref{fig:structured_direct_cmp}. It can be seen that the structured approach generated vastly more test cases that crash the target. This is the direct consequence of the initial data integrity checks which interpret the unstructured data at the service entry point. The direct method needs to learn the data format during fuzzing whereas the structured way has it already encoded in the target description. For this reason, the structured fuzzing appears to be much faster and more efficient than the direct one. This proves that the test case decoder along with the special target description language created in chapter \ref{chap:envir} is a valuable addition to the setup.
+Thanks to the architecture of the target we can connect the \textit{AFLplusplus} fuzzer directly to the target to simulate unstructured fuzzing as shown in figure \ref{fig:directfuzzingsetup}. It can be seen that the \textit{API interface} along with the \textit{API Serializer} is missing. The role of the \textit{Test Case Decoder} is replaced with a simple module responsible for fetching the test case from \textit{QEMU} and passing it to the pipe connected to the \textit{API Deserializer}. Here the test case is not transformed by the \textit{Test Case Decoder}. This allows for evaluating how the test case interpretation layer presented in chapter \ref{chap:envir} impacts the ability to find bugs in the \textit{API handler}. For completion, all other experiments run the structured fuzzing setup. The results are shown in figure \ref{fig:structured_direct_cmp}. It can be seen that the structured approach generated vastly more test cases that crash the target. This is the direct consequence of the initial data integrity checks which interpret the unstructured data at the service entry point. The direct method needs to learn the data format during fuzzing whereas the structured way has it already encoded in the target description. For this reason, the structured fuzzing appears to be much faster and more efficient than the direct one. This proves that the test case decoder along with the special target description language created in chapter \ref{chap:envir} is a valuable addition to the setup.
 
 \begin{figure}[h!]
     \centering
@@ -381,7 +381,7 @@ Thanks to the architecture of the target we can connect the \textit{AFLplusplus}
     }
 
 
-    \caption{Connecting the \textit{AFL++} fuzzer directly to the target.}
+    \caption{Connecting the \textit{AFL++} fuzzer directly to the target, unstructured fuzzing simulation.}
     \label{fig:directfuzzingsetup}
 \end{figure}
 
