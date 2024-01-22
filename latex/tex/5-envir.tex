@@ -64,14 +64,14 @@ Similarly, like in chapter \ref{chap:why} the background colors are used to dist
             \node (qemu) [opensource, fit={(opteeos) (fuzzint)}, label={ QEMU }, text height=9.2cm] {};
         \end{pgfonlayer}
         
-        \draw [arrow] (api) -- (compiler);
-        \draw [arrow] (unittests) -- (rev);
-        \draw [arrow] (compiler) -- (rev);
-        \draw [arrow] (compiler) -- (executor);
-        \draw [arrow] (rev) -- (fuzzint);
-        \draw [darrow] (executor) -- (services);
-        \draw [arrow] (fuzzint) -| (executor); 
-        \draw [darrow] (services) --++ (0cm, 2cm);
+        \draw [arrow] (api) -- (compiler) node[midway, above, yshift=0.5cm] {input};
+        \draw [arrow] (unittests) -- (rev) node[midway, above, yshift=0.5cm] {input};
+        \draw [arrow] (compiler) -- (rev)node[midway, right] {generates};
+        \draw [arrow] (compiler) -- (executor)node[midway, above, yshift=0.5cm] {generates};
+        \draw [arrow] (rev) -- (fuzzint)node[midway, left, yshift=-0.3cm] {generates test cases};
+        \draw [darrow] (executor) -- (services)node[midway, above, yshift=0.5cm] {API calls};
+        \draw [arrow] (fuzzint) -| (executor)node[midway, right, text width=2cm]{provides test cases}; 
+        \draw [darrow] (services) --++ (0cm, 2cm)node[midway, left] {syscalls};
     \end{tikzpicture}
     \caption{Modules diagram.}
     \label{fig:cntdiag}
@@ -193,7 +193,9 @@ Target {
 \paragraph{Implementation of the language primitives}
 Each of the listed primitives can be implemented as an expression that transforms appropriate bytes from the test case and yields the required entity. The \textit{\#U8, \#U16, \#U32} can be implemented by just taking some number of bytes from the test case, arranging them in, for example, little-endian order, and interpreting them as a natural number. Next, the \textit{\#Slice(length)} macro takes the length as an argument and reads bytes from the test case to return it as a reference. The \textit{\#Api(name)} primitive is a reference to another class in the target list. By itself it doesn't consume test case bytes as it just recursively starts the fuzzing process again. This time, the step in the algorithm where the fuzzer chooses the class that begins the fuzzing process is omitted. Next, the \textit{\#OneOf(option1, option2)} is handled just like the other previously described lotteries. In detail, a byte is consumed and interpreted as a natural number. Naturally, the range of value is reduced to the number of given options by a modulo operation. In the generated code this operator is encoded as a sequence of conditional statements where each one handles one option. Last but not least, the \textit{ref} keyword emits a \textit{Rust's} \textit{\&} operator and doesn't impact the test case processing.
 
-To illustrate how the bytes in the test case are used, let us assume that the genetic algorithm inside \textit{AFLplusplus} generated a sequence of bytes seen in listing \ref{tc}. Naturally, these bytes aren't taken from a working example and are stated here just to demonstrate the point. Next, this test case can be coupled with its exemplary interpretation shown in listing \ref{tcdecoded}. For clarity, the corresponding parts between those listings are marked using the same background color. In detail, the test case decodes as follows:
+To illustrate how the bytes in the test case are used, let us assume that the genetic algorithm inside \textit{AFLplusplus} generated a sequence of bytes. 
+This generated test case along with its interpretation can be seen in figure \ref{fig:tcxd}. Naturally, these bytes aren't taken from a working example and are stated here just to demonstrate the point.
+For clarity, the corresponding parts between those listings are marked using the same background color. In detail, the test case decodes as follows:
 \begin{itemize}
     \item \colorbox{red!60}{A3} is used to select \textit{Aes} class,
     \item \colorbox{orange!30}{68} chooses the \textit{Aes} constructor, the \textit{Aes::new} method,
@@ -209,22 +211,42 @@ To illustrate how the bytes in the test case are used, let us assume that the ge
 \end{itemize}
 Of course, in the final setup, these test cases are passed to compiled code for execution. All details describing how this process is done are provided in the next sections. 
 
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[caption={Example test case.},label={tc}]
+\begin{figure}
+    \centering
+\begin{lstlisting}[numbers=none]
+Test case bytes:
 <@\colorbox{red!60}{A3}@> <@\colorbox{orange!30}{68}@> <@\colorbox{blue!30}{62}@> 
     <@\colorbox{green!75}{0x08}@> <@\colorbox{green!60}{47 1F 88 91 0F 33 C6 28}@> 
 <@\colorbox{brown!30}{0xC1}@> <@\colorbox{purple!30}{0E}@> <@\colorbox{black!45}{0x08}@> <@\colorbox{black!30}{03 0F 74 4D BA 32 0D FF}@> <@\colorbox{yellow!60}{AA}@> 
 <@\colorbox{brown!60}{0xA0}@>
-\end{lstlisting}
-\end{minipage}
 
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=rust,caption={Example of interpreted test case.},label={tcdecoded}]
+Interpretation:
 <@\colorbox{red!60}{Aes}@>::<@\colorbox{orange!30}{new}@>(<@\colorbox{blue!30}{Key::new}@>(
     <@\colorbox{green!60}{\&[0x47, 0x1F, 0x88, 0x91, 0x0F, 0x33, 0xC6, 0x28]}@>
 )).<@\colorbox{purple!30}{encrypt}@>(<@\colorbox{black!30}{\&[0x03, 0x0F, 0x74, 0x4D, 0xBA, 0x32, 0x0D, 0xFF]}@>, <@\colorbox{yellow!60}{AesMode::CBC}@>)
 \end{lstlisting}
-\end{minipage}
+
+    \caption{Example test case.}
+    \label{fig:tcxd}
+\end{figure}
+    
+
+%\begin{minipage}{\linewidth}
+%\begin{lstlisting}[caption={Example test case.},label={tc}]
+%<@\colorbox{red!60}{A3}@> <@\colorbox{orange!30}{68}@> <@\colorbox{blue!30}{62}@> 
+%    <@\colorbox{green!75}{0x08}@> <@\colorbox{green!60}{47 1F 88 91 0F 33 C6 28}@> 
+%<@\colorbox{brown!30}{0xC1}@> <@\colorbox{purple!30}{0E}@> <@\colorbox{black!45}{0x08}@> <@\colorbox{black!30}{03 0F 74 4D BA 32 0D FF}@> <@\colorbox{yellow!60}{AA}@> 
+%<@\colorbox{brown!60}{0xA0}@>
+%\end{lstlisting}
+%\end{minipage}
+%
+%\begin{minipage}{\linewidth}
+%\begin{lstlisting}[language=rust,caption={Example of interpreted test case.},label={tcdecoded}]
+%<@\colorbox{red!60}{Aes}@>::<@\colorbox{orange!30}{new}@>(<@\colorbox{blue!30}{Key::new}@>(
+%    <@\colorbox{green!60}{\&[0x47, 0x1F, 0x88, 0x91, 0x0F, 0x33, 0xC6, 0x28]}@>
+%)).<@\colorbox{purple!30}{encrypt}@>(<@\colorbox{black!30}{\&[0x03, 0x0F, 0x74, 0x4D, 0xBA, 0x32, 0x0D, 0xFF]}@>, <@\colorbox{yellow!60}{AesMode::CBC}@>)
+%\end{lstlisting}
+%\end{minipage}
 
 
 \subsection{Designing the compiler} \label{sec:compiler}

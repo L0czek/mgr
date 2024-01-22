@@ -67,8 +67,8 @@ This type of design is fairly common when it comes to creating operating system 
         \draw [darrow] (serializer) -- (interface) node[midway, right] {API};
         \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
         \draw [darrow] (decoder) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
-        \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Loads};
-        \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Loads};
+        \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Start};
+        \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Start};
 
     \end{tikzpicture}
     }
@@ -214,9 +214,9 @@ The changes made to this setup to allow for this experiment can be seen in figur
                     \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
                     \draw [darrow] (decoder) -- (loop) node[midway, right] {API};
                     \draw [darrow] (loop) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
-                    \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Loads};
-                    \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Loads};
-                    \draw [arrow, dashed] (init) |- (loop) node[midway, above left] {Loads};
+                    \draw [arrow, dashed] (init) |- (secsrv) node[midway, above left] {Start};
+                    \draw [arrow, dashed] (init) |- (decoder) node[midway, above left] {Start};
+                    \draw [arrow, dashed] (init) |- (loop) node[midway, above left] {Start};
             \end{tikzpicture}
                 }
         } &
@@ -258,8 +258,8 @@ The changes made to this setup to allow for this experiment can be seen in figur
                     \draw [darrow] (deserializer) -- (serializer) node[midway, right] {pipe};
                     \draw [darrow] (serializer) -- (interface) node[midway, right] {API};
                     \draw [darrow] (interface) -- (decoder) node[midway, right] {API};
-                    \draw [arrow, dashed] (init) -- (loop) node[midway, right] {Loads};
-                    \draw [arrow, dashed] (init) -| ++(-2.25cm, 0cm) node[midway, above] {Loads} |- (secsrv);
+                    \draw [arrow, dashed] (init) -- (loop) node[midway, right] {Start};
+                    \draw [arrow, dashed] (init) -| ++(-2.25cm, 0cm) node[midway, above] {Start} |- (secsrv);
                     \draw [arrow, dashed] (init) -| ++(-2.25cm, 0cm) |- ++(-1.25cm, -6.25cm);
                     \draw [darrow] (loop)+(1cm, -0.5cm) -- ++(1cm, -6cm) node[midway, above, rotate=90] {hypercalls};
                     \draw [darrow] (loop)+(-1cm, -0.5cm) |- ++(-3.5cm, -4.75cm) node[midway, below] {Secure calls};
@@ -375,8 +375,8 @@ Thanks to the architecture of the target we can connect the \textit{AFLplusplus}
         \draw [darrow] (handler) -- (deserializer) node[midway, right] {API};
         \draw [darrow] (deserializer) -- (aflpipe) node[midway, right] {pipe};
         \draw [darrow] (aflpipe) -- ++(0cm, -1.5cm) node[midway, right] {hypercalls};
-        \draw [arrow, dashed] (init) |- (aflpipe) node[midway, right] {Loads};
-        \draw [arrow, dashed] (init) |- (secsrv) node[midway, right] {Loads};
+        \draw [arrow, dashed] (init) |- (aflpipe) node[midway, right] {Start};
+        \draw [arrow, dashed] (init) |- (secsrv) node[midway, right] {Start};
     \end{tikzpicture}
     }
 

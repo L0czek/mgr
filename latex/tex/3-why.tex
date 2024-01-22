@@ -77,13 +77,14 @@ This thesis is about fuzzing services provided by a secure operating system whic
         \node (host) [host, below of=qemu, text width=14.5cm, yshift=-5cm, xshift=-2cm] { Intel x86 host computer };
 
         \draw [darrow] (afl) -- (srv) node[midway, left] {pipes};
-        \draw [darrow] (srv) |- (fuzzerint) node[midway, above right, text width=2cm] {signals and semaphores};
+        \draw [darrow] (srv) |- ++(3.75cm, -3.8cm) node[midway, below right, text width=2cm] {signals and semaphores};
         \draw [darrow] (fuzzerint) -- (fuzzer) node[midway, left] {hypercalls};
         \draw [darrow] (fuzzer) -- (target) node[midway, right] {API};
         \draw [darrow] (target) --++ (0cm, +1cm) node[midway, right] {API};
-        \draw [arrow, dashed] (fuzz2) -- (target) node[midway, above] {Loads};
-        \draw [arrow, dashed] (fuzz2) |- (fuzzer) node[midway, right] {Loads};
+        \draw [arrow, dashed] (fuzz2) -- (target) node[midway, above] {Start};
+        \draw [arrow, dashed] (fuzz2) |- (fuzzer) node[midway, right] {Start};
         \draw [arrow, dashed] (tcg) |- ++(-5cm, 1.8cm) node[midway, above] {Implements hypercalls};
+        \draw [darrow, dotted] (afl) -| ++(2.5cm, -6.2cm) node[above left, text width=1.5cm] {shared memory} |- ++(1.25cm, 0cm) {};
         
     \end{tikzpicture}
     

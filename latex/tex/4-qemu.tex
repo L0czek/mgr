@@ -148,13 +148,14 @@ This provides a decent speed increase and if done correctly is a reliable way of
 \end{figure}
 
 \paragraph{Chosen solutions}
-After exhausting discussion, I decided to implement and test the following solutions:
+After analysis, I decided to implement and test the following solutions:
 \begin{enumerate}
     \item the \textit{QEMU's native serialization mechanism} which is later referred as the native serialization mechanism,
-    \item the \textit{The custom serialization mechanism} described in the previous paragraph,
+    \item the \textit{The custom serialization mechanism} described in the previous paragraph, which may increase the overall fuzzing speed,
     \item fuzzing without restoring the state directly from the secure world to see how significant is the performance impact of virtual machine state preservation,
     \item fuzzing without restoring the state from the normal world to see whether the act of switching worlds adds any measurable delay.
 \end{enumerate}
+The last two options will most likely be faster than any option conducting a virtual machine's state-restoring operations. However, this will come at the cost of lesser test case reproducibility due to the global state accumulating inside the operating system kernel across test case executions. 
 
 \clearpage
 \subsection{Integration with AFLplusplus fuzzer} \label{sec:translator}
