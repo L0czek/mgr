@@ -7,9 +7,9 @@
 
 \subsection{Overview}
 
-This chapter focuses on exploring the inner workings of the test case decoder, refer to chapter \ref{chap:why}. It can be divided into a couple of submodules as seen in figure \ref{fig:cntdiag}. The main task of this module is to interpret test cases from \textit{AFLplusplus} fuzzer and call the secure services based on the received data. This is accomplished by the following stages:
+This chapter focuses on exploring the inner workings of the test case decoder (refer to chapter \ref{chap:why}). It can be divided into a couple of submodules as seen in figure \ref{fig:cntdiag}. The main task of this module is to interpret test cases from \textit{AFLplusplus} fuzzer and call the secure services based on the received data. Overall, setting everything up requires several actions, of which only the first needs to be done manually. In detail it goes as follows:
 \begin{enumerate}
-    \item The preparation phase begins with preparing the description which tells the fuzzer how to use the interface the target provides. This step is called \textit{API description} and utilizes a specially created language. The design and some examples of this domain-specific language are provided in section \ref{sec:lang}.
+    \item Manually preparing the description of the fuzzed target which tells the fuzzer how to use the interface the target provides. This step is called \textit{API description} and utilizes a specially created language. The design and some examples of this domain-specific language are provided in section \ref{sec:lang}.
     \item Next, the target description is fed to the compiler which generates the so-called \textit{executor}. This is done by implementing a special \textit{proc macro} which takes as an argument the target description and emits \textit{Rust} code implementing the test case decoder. It is described in section \ref{sec:compiler}.
     \item Finally, the generated \textit{executor} module communicates with the \textit{QEMU} to fetch the test cases and then interprets them using the compiled code. During execution of the test case, this module calls directly the target which is represented by the \textit{Secure services} module. The actual algorithm which controls the fuzzing process is walked through in section \ref{sec:testcase}.
 \end{enumerate}
@@ -112,12 +112,58 @@ pub enum Friend {
 \end{lstlisting} 
 \end{minipage}
 
-The inner workings of this library are quite simple. It defines a custom deserialization algorithm for each of the standard types. For clarity, in the \textit{Friend} \textit{enum} example the types can be handled as follows:
+\tikzstyle{statement} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{expression} = [rectangle, minimum height=1cm,text centered, draw=black, fill=yellow!30]
+\tikzstyle{other} = [rectangle, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+The inner workings of this library are quite simple. It defines a custom deserialization algorithm for each of the standard types. For clarity, an example of how an object of type \textit{Friend} is encoded can be seen in figure \ref{fig:firendencode}. Since this enumeration has two options, the serializer will first assign unique identifiers to each option. As it is shown in the example the \textit{Buddy} received an identification value of \textit{01} and \textit{Pal} of \textit{02}. After the identifier has been saved the rest depends on the exact inner objects:
 \begin{itemize}
-    \item the \textit{usize} implements the \textit{from\_le\_bytes} function which can be used directly, for example \textit{usize::from\_le\_bytes([1, 0, 0, 0, 0, 0, 0, 0])} returns an \textit{usize} with the value of $1$,
-    \item the \textit{String} type is just a collection of characters, so as every iterable entity this can be serialized as its length which is a number, and then followed by the characters,
-    \item finally the \textit{enum} itself can be treated as a union of different entities which are distinguished by an assigned number that is unique to each option, after the identifier is saved, the rest of the \textit{enum} can be treated as a \textit{union} from \textit{C} language which means that we can just serialize the object associated with the chosen option right after the identifier.
+    \item In case of \textit{Buddy}, the \textit{Name} is saved as its length (\textit{04}) and the text literal (\textit{ 4A 61 63 6B }, or "Jack").
+    \item In case of \textit{Pal}, the \textit{Age} is saved as a 8 byte number (\textit{20 00 00 00 00 00 00 00}).
 \end{itemize}
+
+\begin{figure}[h!]
+    \centering
+
+    \begin{tikzpicture}
+        \begin{pgfonlayer}{background1}
+            \node (buddyid) [other, label={Id}, text width=0.5cm] { 01 };
+            \node (palid) [other, label={Id}, text width=0.5cm, below of=buddyid, yshift=-3cm] { 02 };
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background2}
+            \node (len) [other, right of=buddyid, xshift=0.5cm, label={Length}] { 04 };
+            \node (str) [other, right of=len, xshift=1cm, label={Text}] { 4A 61 63 6B };
+            \node (age) [other, right of=palid, xshift=2cm, label={Age}] { 20 00 00 00 00 00 00 00 };
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background1}
+            \node (name) [other, fit={(len) (str)}, text height=2cm, text width=4cm, label={Name}] {};
+        \end{pgfonlayer}
+
+        \begin{pgfonlayer}{background0}
+            \node (buddy) [expression, fit={(buddyid) (name)}, text height=3cm, label={Buddy}] {};
+            \node (pal) [expression, fit={(palid) (age)}, text height=2cm, label={Pal}] {};
+        \end{pgfonlayer}
+
+        \node (friend) [statement, below of=buddyid, yshift=-1cm, xshift=-4cm] {Friend};
+
+        \draw [arrow] (friend) |- (buddy);
+        \draw [arrow] (friend) |- (pal);
+    \end{tikzpicture}
+
+    \caption{Example encoding of the Friend enum.}
+    \label{fig:firendencode}
+\end{figure}
+
+
+%For clarity, in the \textit{Friend} \textit{enum} example the types can be handled as follows:
+%\begin{itemize}
+%    \item the \textit{usize} implements the \textit{from\_le\_bytes} function which can be used directly, for example \textit{usize::from\_le\_bytes([1, 0, 0, 0, 0, 0, 0, 0])} returns an \textit{usize} with the value of $1$,
+%    \item the \textit{String} type is just a collection of characters, so as every iterable entity this can be serialized as its length which is a number, and then followed by the characters,
+%    \item finally the \textit{enum} itself can be treated as a union of different entities which are distinguished by an assigned number that is unique to each option, after the identifier is saved, the rest of the \textit{enum} can be treated as a \textit{union} from \textit{C} language which means that we can just serialize the object associated with the chosen option right after the identifier.
+%\end{itemize}
 
 \subsubsection{Design of the target description language} \label{sec:lang}
 In the big picture, the API description is a list of classes, where every entry consists of two sets:

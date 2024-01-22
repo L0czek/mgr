@@ -432,12 +432,14 @@ As a result of \textit{OPTEE OS} being a secure-oriented OS, its application int
 \textit{Rust} programming language is a recently created, primarily targeted for system programmers. The design of this language is available in so-called \textit{Rust book} in \cite{rustbook}, which is a comprehensive description of features and design choices.  It is advertised as a \textit{C/C++} successor in the fields of operating systems, driver, and operating system services development. Therefore, \textit{Rust} supports many architectures and operating systems. Additionally, it can be compiled without any external dependencies, or in a so-called bare metal environment, to be used to implement the operating system. As with every modern programming language, Rust comes with its package manager. Typically a package manager is a tool allowing for fetching and configuring the dependencies required to compile the project. A project is a directory containing a package. Continuing, a package is a set of crates, and a crate is according to the \textit{Rust} documentation the smallest amount of code that the \textit{Rust} compiler considers at the time. Such an entity consists of the crate manifest and source files. The Rust designers have also divided crates into two types, there can be library crates which can only expose functionalities, and executable crates which are then compiled into a binary.
 
 \paragraph{Advantages of Rust}
-\textit{Rust} introduces new security mechanisms which are absent in the family of languages derived from \textit{C}. Primarily, \textit{Rust} focuses on memory and thread safety as stated in \cite{rustmemorysafety}. First, \textit{Rust} abandons the use of pointers and allows only references. This enhancement is motivated by the fact that most bugs found in software are memory corruptions. Along with disallowing the use of pointers inside the so-called safe code, \textit{Rust} introduces lifetime checking of references. The entity enforcing those rules was named the borrow checker, its task is to ensure that all entities live in memory as long as they are used. This eliminates other memory bugs such as the popular “use-after-free” where an object is destroyed, yet there still exists a reference to the freed memory and other parts of the program are still executing as if the object still existed. An example of such code can be seen in listing \ref{badcpp} written in \textit{C++}. In this code, the function creates a local variable on the stack named \textit{var} and assigns a value of 0. Then the code takes a reference to \textit{var} and returns it from the function. This results in accessing unallocated memory, as the variable is allocated at the beginning of the function and freed just before returning. 
+\textit{Rust} introduces new security mechanisms which are absent in the family of languages derived from \textit{C}. Primarily, \textit{Rust} focuses on memory and thread safety as stated in \cite{rustmemorysafety}. First, \textit{Rust} abandons the use of pointers and allows only references. This enhancement is motivated by the fact that most bugs found in software are memory corruptions. Along with disallowing the use of pointers inside the so-called safe code, \textit{Rust} introduces lifetime checking of references. The entity enforcing those rules was named the borrow checker, its task is to ensure that all entities live in memory as long as they are used. This eliminates other memory bugs such as the popular “use-after-free” where an object is destroyed, yet there still exists a reference to the freed memory and other parts of the program are still executing as if the object still existed. 
+
+An example of such code can be seen in listing \ref{lst:badcpprust} written in \textit{C++} and \textit{Rust}. In both cases, the function creates a local variable on the stack named \textit{var} and assigns a value of 0. Then the code takes a reference to \textit{var} and returns it from the function. This results in accessing unallocated memory, as the variable is allocated at the beginning of the function and freed just before returning. 
 
 %In comparison, listing \ref{badrust} shows the equivalent code in \textit{Rust}. 
 %Here, just like in the \textit{C++} example, the code allocates on the stack a 32-bit signed variable and assigns a value of $0$. Then it proceeds with returning a reference to it. For clarity, in \textit{Rust} the value of the last expression in a function is treated as the return value. Hence, there is no need to explicitly use the \textit{return} keyword, although \textit{Rust} supports it. 
 
-As expected, the \textit{C++} example compiled without issue, only emitting a warning that can be silenced. In the case of Rust, the compiler would terminate the compilation with a message stating that the return value of the function is not long enough. Additionally, \textit{Rust} controls how references to variables are created. The language introduces two types of references: the immutable one which doesn't allow for the modification of the object it is pointing to, and the mutable which does. There are two major rules governing the creation of these references:
+As expected, the \textit{C++} example compiled without issue, only emitting a warning that can be silenced. In the case of Rust, the compiler would terminate the compilation with a message stating that the return value doesn't live long enough as its lifetime is bound to the functions that created it. Additionally, \textit{Rust} controls how references to variables are created. The language introduces two types of references: the immutable one which doesn't allow for the modification of the object it is pointing to, and the mutable which does. There are two major rules governing the creation of these references:
 \begin{enumerate}
     \item an object can have immutable references if and only if it doesn't have any mutable reference,
     \item an object cannot have multiple mutable references.
@@ -446,23 +448,25 @@ These restrictions ensure that objects don't suddenly change or become deleted w
 
 Apart from that, \textit{Rust's} assignment operation moves the argument instead of copying it, as is the case in languages like \textit{C++}. This allows to write efficient code, as each copy operation needs to be explicitly allowed. Besides that, the language provides a mechanism to securely pass entities between threads. Basically, \textit{Rust} bans the usage of an object in a multithreaded environment if it doesn't implement the proper synchronization mechanisms. This eliminates race conditions where threads race for access to a shared resource and different order of accesses leads to different execution results. Unfortunately, this doesn't solve the problem of two threads locking up on a shared pair of resources, stalling the execution forever. Therefore, the deadlock problem is still persistent and needs to be avoided. 
 
-%\begin{minipage}{.4\textwidth}
-    \begin{lstlisting}[language=c++,caption={Example of a memory corruption bug in C++.},captionpos=b,label={badcpp}]
+\begin{table}
+    \centering
+    \begin{tabular}{c@{\hskip 1cm}|@{\hskip 1cm}c}
+        \begin{lstlisting}
 int& function() {
     int var = 0;
     return &var;
 }
-    \end{lstlisting} 
-%\end{minipage}
-%\hfill\vline\hfill
-%\begin{minipage}{.4\textwidth}
-%    \begin{lstlisting}[language=rust,caption={Replicating a memory corruption bug in Rust.},captionpos=b,label={badrust}]
-%fn function() -> &i32 {
-%    let var = 0i32;
-%    &var
-%} 
-%    \end{lstlisting}
-%\end{minipage}
+        \end{lstlisting} &
+        \begin{lstlisting}
+fn function() -> &i32 {
+    let var = 0i32;
+    &var
+} 
+        \end{lstlisting}\\
+    \end{tabular}
+    \captionof{lstlisting}{Example of a memory corruption bug in C++ and Rust.}
+    \label{lst:badcpprust}
+\end{table}
 
 \textit{Rust} designers have also abandoned the use of inheritance as a polymorphism mechanism, they instead introduced traits. Each trait defines an interface that can be implemented by a struct, which then allows the object to be referred to as a reference to the trait it implements. This effectively replaces the inheritance, without the potential complications that can arise like, for example, diamond inheritance. For clarity, this class derivation scheme happens when some base class exists in multiple instances in the inheritance tree. Normally, this situation is impossible in languages like \textit{C\#} or \textit{Java} where a class can only inherit from a single base class. As a result, all inheritance schemas are trees, usually starting from a single base class. However, \textit{C++} language allows for multi-base inheritance, which can lead to complicated structures in the derivation graph.
 
