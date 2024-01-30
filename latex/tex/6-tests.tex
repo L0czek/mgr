@@ -10,7 +10,9 @@ The target of fuzzing in this thesis is the \textit{Secure services} module whic
     \item \textit{API Deserializer} - this segment translates back the data into objects,
     \item \textit{Handler} - this module executes the actual functions whose invocation was requested by the \textit{API interface} layer.
 \end{enumerate}
-Naturally, serializing to raw data and deserializing right away might seem pointless. It has been implemented this way to allow for connecting the \textit{AFL++} fuzzer directly to the target. This allows testing how doesn't the test case decoer impact the efficiency of the fuzzing process. 
+Naturally, serializing to raw data and deserializing right away might seem pointless. It has been implemented this way to allow for connecting the \textit{AFL++} fuzzer directly to the target. 
+This allows to test how the test case decoder impacts the efficiency of the fuzzing process.
+%This allows testing how doesn't the test case decoder impact the efficiency of the fuzzing process. 
 Moreover, such data flow is fairly common when it comes to creating operating system calls or interfaces between applications. In those cases, the data needs to cross the barrier of address spaces which means that any guarantees about the structure are lost. For this reason, the \textit{API Deserializer} needs to check the integrity of the data to ensure the data can be safely accessed. Additionally, it allows for connecting the \textit{AFLplusplus} fuzzer directly to the \textit{API Deserializer} and bypassing the test case decoder from the previous chapter. For clarity, the \textit{AFL++} fuzzer can be connected to the pipe connecting the \textit{API Serializer} to \textit{API Deserializer}. Naturally, since this pipe exists only inside \textit{OPTEE OS} the data is first transferred to \textit{QEMU} by using special \textit{hypercalls}. Thanks to this I could compare how passing properly constructed objects and arguments to the \textit{API interface} impacts the fuzzing process.
 
 \tikzstyle{opensource} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=green!30]
