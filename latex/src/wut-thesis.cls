@@ -293,28 +293,28 @@
     \pagenumbering{gobble}
 
     \begin{center}
-        \includegraphics[width=\textwidth]{src/\@lang/header/\@faculty.pdf} \\
+        \includegraphics[width=\textwidth]{src/pl/header/\@faculty.pdf} \\
         \vspace{3em}
         \ifnum \pdf@strcmp{\@lang}{pl} = 0
             Instytut \@instytut \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            Institute of \@instytut \\
+            Instytut \@instytut \\
         \fi
         \vspace{4em}
-        \includegraphics[width=\textwidth]{src/\@lang/title/\@ThesisType.pdf} \\
+        \includegraphics[width=\textwidth]{src/pl/title/\@ThesisType.pdf} \\
         \vspace{2em}
         \ifnum \pdf@strcmp{\@lang}{pl} = 0
             na~kierunku \@kierunek \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            in~the~field~of~study \@kierunek \\
+            na~kierunku \@kierunek \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{pl} = 0
             w~specjalności \@specjalnosc \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            and~specialisation \@specjalnosc \\
+            w~specjalności \@specjalnosc \\
         \fi
         \vspace{4em}
         \large \@title \\
@@ -325,14 +325,14 @@
             Numer~albumu \@album \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            student record book number \@album \\
+            Numer~albumu \@album \\
         \fi
         \vspace{4em}
         \ifnum \pdf@strcmp{\@lang}{pl} = 0
             promotor \\
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            thesis supervisor \\
+            promotor \\
         \fi
         \@promotor \\
         \vfill
@@ -340,7 +340,7 @@
             WARSZAWA \@date
         \fi
         \ifnum \pdf@strcmp{\@lang}{en} = 0
-            WARSAW \@date
+            WARSZAWA \@date
         \fi
     \end{center}
 
